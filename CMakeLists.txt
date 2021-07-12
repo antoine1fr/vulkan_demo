@@ -8,15 +8,14 @@ list(INSERT CMAKE_MODULE_PATH 0 ${PROJECT_SOURCE_DIR}/cmake)
 find_package(SDL2 REQUIRED)
 find_package(SDL2_image REQUIRED)
 find_package(Vulkan REQUIRED)
-find_package(MoltenVK REQUIRED)
+# find_package(MoltenVK REQUIRED)
 
 add_executable(vulkan_demo
   "src/main.cpp")
 target_link_libraries(vulkan_demo
   SDL2::SDL2
-  Vulkan::Vulkan
-  MoltenVK::MoltenVK)
-target_compile_options(vulkan_demo PRIVATE -Wall -pedantic)
+  Vulkan::Vulkan)
+target_compile_options(vulkan_demo PRIVATE -Wall -Wextra -pedantic -Weffc++)
 target_compile_features(vulkan_demo PRIVATE cxx_std_17)
 set_target_properties(vulkan_demo PROPERTIES CXX_EXTENSIONS OFF)
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} \
