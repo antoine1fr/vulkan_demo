@@ -1,6 +1,7 @@
 #include <SDL.h>
 #include <SDL_vulkan.h>
 #include <vulkan/vulkan.h>
+#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <map>
@@ -16,8 +17,12 @@ struct AppState
   VkPhysicalDevice physical_device;
   uint32_t queue_family_index;
   VkDevice device;
+  VkQueue queue;
+  VkCommandPool command_pool;
+  VkCommandBuffer command_buffer;
   VkSurfaceKHR surface;
   VkSwapchainKHR swapchain;
+  VkShaderModule shader_module;
 };
 
 static size_t get_terminal_width()
@@ -148,43 +153,6 @@ static void create_vulkan_instance(AppState& state)
   result = vkCreateInstance(&instance_info, nullptr, &state.instance);
   assert(result == VK_SUCCESS);
 }
-
-// static VkDisplayModeKHR select_display_mode(VkPhysicalDevice device,
-//                                             VkDisplayKHR display,
-//                                             uint32_t target_refresh_rate)
-// {
-//   uint32_t count;
-//   VkResult result =
-//     vkGetDisplayModePropertiesKHR(device, display, &count, nullptr);
-//   assert(result == VK_SUCCESS);
-//   assert(count > 0);
-
-//   std::vector<VkDisplayModePropertiesKHR> display_mode_properties(count);
-//   result = vkGetDisplayModePropertiesKHR(device,
-//                                          display,
-//                                          &count,
-//                                          display_mode_properties.data());
-//   assert(result == VK_SUCCESS);
-
-//   // We want a mode with a refresh rate that is higher or equal to the
-//   // target refresh rate. We stop at the first mode that makes it and
-//   // fallback to the mode with the highest refresh rate.
-  
-//   size_t winner_index = 0;
-//   uint32_t winner_refresh_rate = display_mode_properties[0].parameters.refreshRate;
-//   for (size_t i = 0; i < display_mode_properties.size(); ++i)
-//   {
-//     const auto& candidate_rate = display_mode_properties[i].parameters.refreshRate;
-//     if (winner_refresh_rate < candidate_rate)
-//     {
-//       winner_index = i;
-//       winner_refresh_rate = candidate_rate;
-//     }
-//     if (winner_refresh_rate >= target_refresh_rate)
-//       break;
-//   }
-//   return display_mode_properties[winner_index].displayMode;
-// }
 
 static void create_vulkan_surface(AppState& state)
 {
@@ -486,6 +454,80 @@ static void create_device(AppState& state)
                                    nullptr,
                                    &state.device);
   assert(result == VK_SUCCESS);
+
+  vkGetDeviceQueue(state.device,
+                   state.queue_family_index,
+                   0,
+                   &state.queue);
+}
+
+static void create_vulkan_command_pool(AppState& state)
+{
+  VkCommandPoolCreateInfo create_info {};
+  create_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+  create_info.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT
+    | VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+  create_info.queueFamilyIndex = state.queue_family_index;
+
+  VkResult result = vkCreateCommandPool(state.device,
+                                        &create_info,
+                                        nullptr,
+                                        &state.command_pool);
+  assert(result == VK_SUCCESS);
+}
+
+static void create_vulkan_command_buffer(AppState& state)
+{
+  VkCommandBufferAllocateInfo info {};
+  info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+  info.commandPool = state.command_pool;
+  info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+  info.commandBufferCount = 1;
+
+  VkResult result = vkAllocateCommandBuffers(state.device,
+                                             &info,
+                                             &state.command_buffer);
+  assert(result == VK_SUCCESS);
+}
+
+// static void create_vulkan_pipeline(AppState& state)
+// {
+//   VkGraphicsPipelineCreateInfo info {};
+//   info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+//   info.stage = VK_SHADER_STAGE_VERTEX_BIT;
+//   info.module = state.shader_module;
+//   info.pName = "main";
+  
+//   VkResult result = vkCreateGraphicsPipelines(
+//     state.device,
+//     VK_NULL_HANDLE,
+//     1,
+//     &info,
+//     nullptr,
+//     &state.pipeline);
+//   assert(result = VK_SUCCESS);
+// }
+
+static void load_shader(AppState& state)
+{
+  std::ifstream stream("vertex.spv");
+  assert(stream);
+  stream.seekg(0, std::ios_base::end);
+  std::size_t length = stream.tellg();
+  stream.seekg(0, std::ios_base::beg);
+  std::string sources(length, '\0');
+  stream.read(sources.data(), length);
+
+  VkShaderModuleCreateInfo info {};
+  info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+  info.codeSize = sources.length();
+  info.pCode = reinterpret_cast<uint32_t*>(sources.data());
+
+  VkResult result = vkCreateShaderModule(state.device,
+                                         &info,
+                                         nullptr,
+                                         &state.shader_module);
+  assert(result == VK_SUCCESS);
 }
 
 static void init_vulkan(AppState& state)
@@ -501,16 +543,22 @@ static void init_vulkan(AppState& state)
   find_physical_device(state);
   create_device(state);
   create_vulkan_swapchain(state, window_dimensions);
+  load_shader(state);
+  // create_vulkan_pipeline(state);
+  create_vulkan_command_pool(state);
+  create_vulkan_command_buffer(state);
 }
 
 static void cleanup(const AppState& state)
 {
+  vkDestroyShaderModule(state.device, state.shader_module, nullptr);
+  // vkDestroyPipeline(state.device, state.pipeline, nullptr);
+  vkDestroyCommandPool(state.device, state.command_pool, nullptr);
   vkDestroySwapchainKHR(state.device, state.swapchain, nullptr);
   vkDestroyDevice(state.device, nullptr);
   vkDestroySurfaceKHR(state.instance, state.surface, nullptr);
   vkDestroyInstance(state.instance, nullptr);
   SDL_DestroyWindow(state.window);
-
 }
 
 int main() {
