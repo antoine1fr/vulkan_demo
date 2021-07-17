@@ -54,8 +54,10 @@ static std::vector<VkPhysicalDevice> enumerate_physical_devices(VkInstance insta
 }
 
 // Fat, messy god object. Yeaaah.
-struct App
+class App
 {
+private:
+  VkExtent2D window_extent_;
   SDL_Window* window_;
   VkInstance instance_;
   VkPhysicalDevice physical_device_;
@@ -70,8 +72,9 @@ struct App
   VkPipelineLayout pipeline_layout_;
   VkPipeline pipeline_;
   VkRenderPass render_pass_;
+  VkFormat swapchain_image_format_;
 
-
+private:
   void check_extensions(std::vector<VkExtensionProperties> available_extensions_vec,
                         std::vector<const char*> wanted_extensions)
     {
@@ -241,18 +244,19 @@ struct App
       surface_format = formats[best_index];
     }
 
-  void create_vulkan_swapchain(const VkExtent2D& window_dimensions)
+  void create_vulkan_swapchain()
     {
       VkSurfaceFormatKHR surface_format;
       select_best_surface_format(surface_format);
+      swapchain_image_format_ = surface_format.format;
 
       VkSwapchainCreateInfoKHR swapchain_create_info {};
       swapchain_create_info.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
       swapchain_create_info.surface = surface_;
       swapchain_create_info.minImageCount = 2;
-      swapchain_create_info.imageFormat = surface_format.format;
+      swapchain_create_info.imageFormat = swapchain_image_format_;
       swapchain_create_info.imageColorSpace = surface_format.colorSpace;
-      swapchain_create_info.imageExtent = window_dimensions;
+      swapchain_create_info.imageExtent = window_extent_;
       swapchain_create_info.imageArrayLayers = 1;
       swapchain_create_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
       swapchain_create_info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
@@ -320,7 +324,7 @@ struct App
         vkGetPhysicalDeviceQueueFamilyProperties(physical_device, &queue_family_property_count, nullptr);
 
         std::vector<VkQueueFamilyProperties> queue_family_properties(queue_family_property_count);
-        vkGetPhysicalDeviceQueueFamilyProperties(physical_device_,
+        vkGetPhysicalDeviceQueueFamilyProperties(physical_device,
                                                  &queue_family_property_count,
                                                  queue_family_properties.data());
         for (uint32_t queue_family_index = 0;
@@ -331,8 +335,8 @@ struct App
           if (properties.queueFlags & VK_QUEUE_GRAPHICS_BIT)
           {
             VkBool32 supported;
-            vkGetPhysicalDeviceSurfaceSupportKHR(physical_device_,
-                                                 queue_family_index_,
+            vkGetPhysicalDeviceSurfaceSupportKHR(physical_device,
+                                                 queue_family_index,
                                                  surface_,
                                                  &supported);
             if (supported == VK_TRUE)
@@ -516,59 +520,7 @@ struct App
   void create_vulkan_pipeline()
     {
       VkResult result;
-
-      VkAttachmentDescription attachments[] =
-        {
-          {
-            0,
-            VK_FORMAT_R8G8B8A8_UNORM,
-            VK_SAMPLE_COUNT_1_BIT,
-            VK_ATTACHMENT_LOAD_OP_CLEAR,
-            VK_ATTACHMENT_STORE_OP_STORE,
-            VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-            VK_ATTACHMENT_STORE_OP_DONT_CARE,
-            VK_IMAGE_LAYOUT_UNDEFINED,
-            VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
-          }
-        };
-
-      VkAttachmentReference attachement_references[] =
-        {
-          {
-            0,
-            VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
-          }
-        };
-
-      VkSubpassDescription subpasses[] =
-        {
-          {
-            0,
-            VK_PIPELINE_BIND_POINT_GRAPHICS,
-            0,
-            nullptr,
-            1,
-            &attachement_references[0],
-            nullptr,
-            nullptr,
-            0,
-            nullptr
-          }
-        };
-  
-      VkRenderPassCreateInfo render_pass_info {};
-      render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-      render_pass_info.attachmentCount = 1;
-      render_pass_info.pAttachments = &attachments[0];
-      render_pass_info.subpassCount = 1;
-      render_pass_info.pSubpasses = &subpasses[0];
-
-      result = vkCreateRenderPass(device_,
-                                  &render_pass_info,
-                                  nullptr,
-                                  &render_pass_);
-      assert(result == VK_SUCCESS);
-
+ 
       VkPipelineShaderStageCreateInfo shader_stage_info {};
       shader_stage_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
       shader_stage_info.stage = VK_SHADER_STAGE_VERTEX_BIT;
@@ -605,14 +557,14 @@ struct App
       VkViewport viewport
         {
           0.0f, 0.0f,
-          1.0f, 1.0f,
+          (float)window_extent_.width, (float)window_extent_.height,
           0.1, 1000.0f
         };
 
       VkRect2D scissor =
         {
           {0, 0},
-          {1, 1}
+          window_extent_
         };
 
       VkPipelineViewportStateCreateInfo viewport_state_info {};
@@ -629,6 +581,57 @@ struct App
       rasterization_state_info.cullMode = VK_CULL_MODE_NONE;
       rasterization_state_info.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
 
+      VkPipelineColorBlendAttachmentState color_blend_attachment{};
+      color_blend_attachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT
+        | VK_COLOR_COMPONENT_G_BIT
+        | VK_COLOR_COMPONENT_B_BIT
+        | VK_COLOR_COMPONENT_A_BIT;
+
+      VkPipelineColorBlendStateCreateInfo color_blend_state_info {};
+      color_blend_state_info.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+      color_blend_state_info.logicOp = VK_LOGIC_OP_COPY;
+      color_blend_state_info.attachmentCount = 1;
+      color_blend_state_info.pAttachments = &color_blend_attachment;
+
+      VkAttachmentDescription color_attachment{};
+      color_attachment.format = swapchain_image_format_;
+      color_attachment.samples = VK_SAMPLE_COUNT_1_BIT;
+      color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+      color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+      color_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+      color_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+      color_attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+      color_attachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+      VkAttachmentReference color_attachment_reference{};
+      color_attachment_reference.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+      VkSubpassDescription subpass{};
+      subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+      subpass.colorAttachmentCount = 1;
+      subpass.pColorAttachments = &color_attachment_reference;
+
+      VkSubpassDependency subpass_dependency{};
+      subpass_dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+      subpass_dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+      subpass_dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+      subpass_dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
+      VkRenderPassCreateInfo render_pass_info {};
+      render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+      render_pass_info.attachmentCount = 1;
+      render_pass_info.pAttachments = &color_attachment;
+      render_pass_info.subpassCount = 1;
+      render_pass_info.pSubpasses = &subpass;
+      render_pass_info.dependencyCount = 1;
+      render_pass_info.pDependencies = &subpass_dependency;
+
+      result = vkCreateRenderPass(device_,
+                                  &render_pass_info,
+                                  nullptr,
+                                  &render_pass_);
+      assert(result == VK_SUCCESS);
+
       VkGraphicsPipelineCreateInfo info {};
       info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
       info.stageCount = 1;
@@ -637,6 +640,7 @@ struct App
       info.pInputAssemblyState = &input_assembly_state_info;
       info.pViewportState = &viewport_state_info;
       info.pRasterizationState = &rasterization_state_info;
+      info.pColorBlendState = &color_blend_state_info;
       info.layout = pipeline_layout_;
       info.renderPass = render_pass_;
   
@@ -652,7 +656,8 @@ struct App
 
   void load_shader()
     {
-      std::ifstream stream("shader.spv");
+      // TODO: load a vertex shader and a fragment shader.
+      std::ifstream stream("vertex.spv");
       assert(stream);
       stream.seekg(0, std::ios_base::end);
       std::size_t length = stream.tellg();
@@ -672,19 +677,24 @@ struct App
       assert(result == VK_SUCCESS);
     }
 
+public:
+  App():
+    window_extent_{800, 600}
+    {
+    }
+
   void init_vulkan()
     {
-      VkExtent2D window_dimensions = {800, 600};
       window_ = SDL_CreateWindow("Vulkan demo",
                                  0, 0,
-                                 window_dimensions.width, window_dimensions.height,
+                                 window_extent_.width, window_extent_.height,
                                  SDL_WINDOW_VULKAN);
       assert(window_ != nullptr);
       create_vulkan_instance();
       create_vulkan_surface();
       find_physical_device();
       create_device();
-      create_vulkan_swapchain(window_dimensions);
+      create_vulkan_swapchain();
       load_shader();
       create_pipeline_layout();
       create_vulkan_pipeline();
