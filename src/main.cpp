@@ -142,26 +142,17 @@ private:
   void create_vulkan_instance()
     {
       unsigned int extension_count;
-      // VkResult result =
-      //   SDL_Vulkan_GetInstanceExtensions(window_, &extension_count, nullptr);
-      VkResult result =
-        vkEnumerateInstanceExtensionProperties(nullptr, &extension_count, nullptr);
-      assert(result == VK_SUCCESS);
-      std::vector<VkExtensionProperties> available_extensions(extension_count);
-      result = vkEnumerateInstanceExtensionProperties(nullptr,
-                                                      &extension_count,
-                                                      available_extensions.data());
-
-      std::vector<const char *> extension_names {
-        "VK_KHR_surface",
-        "VK_MVK_macos_surface"
-        // "VK_EXT_metal_surface"
-        // "VK_KHR_display"
-      };
-      check_extensions(available_extensions, extension_names);
+      SDL_Vulkan_GetInstanceExtensions(window_,
+                                       &extension_count,
+                                       nullptr);
+      std::vector<const char*> extension_names(static_cast<size_t>(extension_count));
+      SDL_Vulkan_GetInstanceExtensions(window_,
+                                       &extension_count,
+                                       extension_names.data());
+      extension_names.push_back("VK_KHR_get_physical_device_properties2");
 
       uint32_t layer_count;
-      result = vkEnumerateInstanceLayerProperties(&layer_count, nullptr);
+      VkResult result = vkEnumerateInstanceLayerProperties(&layer_count, nullptr);
       assert(result == VK_SUCCESS);
       std::vector<VkLayerProperties> layer_properties(layer_count);
       result = vkEnumerateInstanceLayerProperties(&layer_count, layer_properties.data());
@@ -449,8 +440,7 @@ private:
   void create_device()
     {
       std::vector<const char*> extensions {
-        // "VK_KHR_get_physical_device_properties2",
-        // "VK_KHR_portability_subset",
+        "VK_KHR_portability_subset",
         "VK_KHR_swapchain"
       };
       check_device_extensions(physical_device_, extensions);
@@ -580,6 +570,7 @@ private:
       rasterization_state_info.polygonMode = VK_POLYGON_MODE_FILL;
       rasterization_state_info.cullMode = VK_CULL_MODE_NONE;
       rasterization_state_info.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
+      rasterization_state_info.lineWidth = 1.0f;
 
       VkPipelineColorBlendAttachmentState color_blend_attachment{};
       color_blend_attachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT
