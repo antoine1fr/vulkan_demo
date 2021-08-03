@@ -9,6 +9,7 @@
 #include <vulkan/vulkan.h>
 
 // STL
+#include <algorithm>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -248,14 +249,21 @@ private:
 
   void create_vulkan_swapchain()
     {
+      VkResult result;
       VkSurfaceFormatKHR surface_format;
       select_best_surface_format(surface_format);
       swapchain_image_format_ = surface_format.format;
 
+      VkSurfaceCapabilitiesKHR capabilities {};
+      result = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device_,
+                                                         surface_,
+                                                         &capabilities);
+      assert(result == VK_SUCCESS);
+
       VkSwapchainCreateInfoKHR swapchain_create_info {};
       swapchain_create_info.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
       swapchain_create_info.surface = surface_;
-      swapchain_create_info.minImageCount = 2;
+      swapchain_create_info.minImageCount = std::max<uint32_t>(capabilities.minImageCount, 3);
       swapchain_create_info.imageFormat = swapchain_image_format_;
       swapchain_create_info.imageColorSpace = surface_format.colorSpace;
       swapchain_create_info.imageExtent = window_extent_;
@@ -268,7 +276,7 @@ private:
       swapchain_create_info.clipped = VK_TRUE;
       swapchain_create_info.oldSwapchain = VK_NULL_HANDLE;
 
-      VkResult result =
+      result =
         vkCreateSwapchainKHR(device_,
                              &swapchain_create_info,
                              nullptr,
@@ -723,6 +731,7 @@ public:
 
   void cleanup()
     {
+      vkDestroyPipelineLayout(device_, pipeline_layout_, nullptr);
       vkDestroyRenderPass(device_, render_pass_, nullptr);
       vkDestroyPipeline(device_, pipeline_, nullptr);
       vkDestroyShaderModule(device_, shader_module_, nullptr);
