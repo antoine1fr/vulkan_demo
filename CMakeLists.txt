@@ -19,8 +19,23 @@ target_link_libraries(vulkan_demo
 target_compile_options(vulkan_demo PRIVATE -Wall -Wextra -pedantic -Weffc++)
 target_compile_features(vulkan_demo PRIVATE cxx_std_17)
 set_target_properties(vulkan_demo PROPERTIES CXX_EXTENSIONS OFF)
-set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} \
+
+if(APPLE)
+  set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} \
   -framework AppKit \
   -framework Metal \
   -framework MetalKit \
   -framework ModelIO")
+endif()
+
+add_custom_command(
+  OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/vertex.spv"
+  COMMAND "${Vulkan_GLSLC_EXECUTABLE}"
+  ARGS -o "${CMAKE_CURRENT_BINARY_DIR}/vertex.spv" -fshader-stage=vertex "${CMAKE_CURRENT_LIST_DIR}/src/vertex.glsl"
+  DEPENDS "${CMAKE_CURRENT_LIST_DIR}/src/vertex.glsl"
+)
+
+add_custom_target(
+  shader_gen ALL
+  DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/vertex.spv"
+)

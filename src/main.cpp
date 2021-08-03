@@ -16,6 +16,14 @@
 #include <sstream>
 #include <vector>
 
+#if defined(__APPLE__)
+# define DEMO_BUILD_APPLE
+#elif defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
+# define DEMO_BUILD_WINDOWS
+#elif defined(__linux__)
+# define DEMO_BUILD_LINUX
+#endif
+
 struct Vertex
 {
   glm::vec4 position;
@@ -149,7 +157,10 @@ private:
       SDL_Vulkan_GetInstanceExtensions(window_,
                                        &extension_count,
                                        extension_names.data());
+
+#if defined(DEMO_BUILD_APPLE)
       extension_names.push_back("VK_KHR_get_physical_device_properties2");
+#endif
 
       uint32_t layer_count;
       VkResult result = vkEnumerateInstanceLayerProperties(&layer_count, nullptr);
@@ -440,7 +451,9 @@ private:
   void create_device()
     {
       std::vector<const char*> extensions {
+#if defined(DEMO_BUILD_APPLE)
         "VK_KHR_portability_subset",
+#endif
         "VK_KHR_swapchain"
       };
       check_device_extensions(physical_device_, extensions);
@@ -642,7 +655,7 @@ private:
         &info,
         nullptr,
         &pipeline_);
-      assert(result = VK_SUCCESS);
+      assert(result == VK_SUCCESS);
     }
 
   void load_shader()
@@ -670,7 +683,22 @@ private:
 
 public:
   App():
-    window_extent_{800, 600}
+    window_extent_{800, 600},
+    window_(nullptr),
+    instance_(VK_NULL_HANDLE),
+    physical_device_(VK_NULL_HANDLE),
+    queue_family_index_(VK_NULL_HANDLE),
+    device_(VK_NULL_HANDLE),
+    queue_(VK_NULL_HANDLE),
+    command_pool_(VK_NULL_HANDLE),
+    command_buffer_(VK_NULL_HANDLE),
+    surface_(VK_NULL_HANDLE),
+    swapchain_(VK_NULL_HANDLE),
+    shader_module_(VK_NULL_HANDLE),
+    pipeline_layout_(VK_NULL_HANDLE),
+    pipeline_(VK_NULL_HANDLE),
+    render_pass_(VK_NULL_HANDLE),
+    swapchain_image_format_(VK_FORMAT_UNDEFINED)
     {
     }
 
