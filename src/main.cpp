@@ -669,9 +669,8 @@ private:
   void load_shader()
     {
       // TODO: load a vertex shader and a fragment shader.
-      std::ifstream stream("vertex.spv");
+      std::ifstream stream("vertex.spv", std::ios::ate);
       assert(stream);
-      stream.seekg(0, std::ios_base::end);
       std::size_t length = stream.tellg();
       stream.seekg(0, std::ios_base::beg);
       std::string sources(length, '\0');
