@@ -59,6 +59,8 @@ static std::vector<VkPhysicalDevice> enumerate_physical_devices(
 // Fat, messy god object. Yeaaah.
 class App {
  private:
+  const size_t kMaxFrames = 2;
+
   VkExtent2D window_extent_;
   SDL_Window* window_;
   VkInstance instance_;
@@ -75,6 +77,9 @@ class App {
   VkPipeline pipeline_;
   VkRenderPass render_pass_;
   VkFormat swapchain_image_format_;
+  std::vector<VkSemaphore> image_available_semaphores_;
+  std::vector<VkSemaphore> render_finished_semaphores_;
+  std::vector<VkFence> in_flight_fences_;
 
  private:
   void check_extensions(
@@ -610,6 +615,47 @@ class App {
     assert(result == VK_SUCCESS);
   }
 
+  void create_sync_objects() {
+    image_available_semaphores_.resize(kMaxFrames);
+    render_finished_semaphores_.resize(kMaxFrames);
+    in_flight_fences_.resize(kMaxFrames);
+
+    VkSemaphoreCreateInfo semaphore_info{};
+    semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
+    VkFenceCreateInfo fence_info{};
+    fence_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+
+    for (size_t i = 0; i < kMaxFrames; ++i) {
+      if (vkCreateSemaphore(device_, &semaphore_info, nullptr,
+                            &image_available_semaphores_[i]) != VK_SUCCESS ||
+          vkCreateSemaphore(device_, &semaphore_info, nullptr,
+                            &render_finished_semaphores_[i]) != VK_SUCCESS ||
+          vkCreateFence(device_, &fence_info, nullptr, &in_flight_fences_[i]) !=
+              VK_SUCCESS) {
+        assert(false);
+      }
+    }
+  }
+
+  void draw_frame() {
+    vkWaitForFences(device_, 1, in_flight_fences_[current_frame], VK_TRUE,
+                    UINT64_MAX);
+
+    uint32_t image_index;
+    vkAcquireNextImageKHR(device_, swapchain_, UINT64_MAX,
+                          image_available_semaphores_[current_frame],
+                          VK_NULL_HANDLE, &image_index);
+
+    if (in_flight_fences_[image_index] != VK_NULL_HANDLE) {
+      vkWaitForFences(device_, 1, &in_flight_fences_[image_index], VK_TRUE,
+                      UINT64_MAX);
+    }
+    in_flight_fences_[image_index] = in_flight_fences_[current_frame];
+
+    current_frame = (current_frame + 1) % kMaxFrames;
+  }
+
  public:
   App()
       : window_extent_{800, 600},
@@ -627,7 +673,14 @@ class App {
         pipeline_layout_(VK_NULL_HANDLE),
         pipeline_(VK_NULL_HANDLE),
         render_pass_(VK_NULL_HANDLE),
-        swapchain_image_format_(VK_FORMAT_UNDEFINED) {}
+        swapchain_image_format_(VK_FORMAT_UNDEFINED),
+        image_available_semaphores_{},
+        render_finished_semaphores_{},
+        in_flight_fences_{} {}
+
+  App(const App&) = delete;
+  App(App&&) = delete;
+  const App& operator=(const App&) = delete;
 
   void init_vulkan() {
     window_ = SDL_CreateWindow("Vulkan demo", 0, 0, window_extent_.width,
@@ -643,9 +696,15 @@ class App {
     create_vulkan_pipeline();
     create_vulkan_command_pool();
     create_vulkan_command_buffer();
+    create_sync_objects();
   }
 
   void cleanup() {
+    for (size_t i = 0; i < kMaxFrames; ++i) {
+      vkDestroySemaphore(device_, render_finished_semaphores_[i], nullptr);
+      vkDestroySemaphore(device_, image_available_semaphores_[i], nullptr);
+      vkDestroyFence(device_, in_flight_fences_[i], nullptr);
+    }
     vkDestroyPipelineLayout(device_, pipeline_layout_, nullptr);
     vkDestroyRenderPass(device_, render_pass_, nullptr);
     vkDestroyPipeline(device_, pipeline_, nullptr);
@@ -658,13 +717,25 @@ class App {
     SDL_DestroyWindow(window_);
   }
 
-  void run() {}
+  void run() {
+    bool run = true;
+
+    while (run) {
+      SDL_Event event;
+      SDL_PollEvent(&event);
+      if (event.type == SDL_QUIT)
+        run = false;
+      draw_frame();
+      SDL_Delay(16);
+    }
+  }
 };
 
 int main() {
   App app;
   assert(SDL_Init(SDL_INIT_EVERYTHING) == 0);
   app.init_vulkan();
+  app.run();
   app.cleanup();
   SDL_Quit();
   return 0;
