@@ -69,9 +69,11 @@ class App {
   VkDevice device_;
   VkQueue queue_;
   VkCommandPool command_pool_;
-  VkCommandBuffer command_buffer_;
+  std::vector<VkCommandBuffer> command_buffers_;
   VkSurfaceKHR surface_;
   VkSwapchainKHR swapchain_;
+  std::vector<VkImageView> swapchain_image_views_;
+  std::vector<VkFramebuffer> framebuffers_;
   VkShaderModule shader_module_;
   VkPipelineLayout pipeline_layout_;
   VkPipeline pipeline_;
@@ -80,6 +82,8 @@ class App {
   std::vector<VkSemaphore> image_available_semaphores_;
   std::vector<VkSemaphore> render_finished_semaphores_;
   std::vector<VkFence> in_flight_fences_;
+  std::vector<VkFence> in_flight_images_;
+  size_t current_frame_;
 
  private:
   void check_extensions(
@@ -459,10 +463,10 @@ class App {
     info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     info.commandPool = command_pool_;
     info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    info.commandBufferCount = 1;
+    info.commandBufferCount = kMaxFrames;
 
     VkResult result =
-        vkAllocateCommandBuffers(device_, &info, &command_buffer_);
+      vkAllocateCommandBuffers(device_, &info, command_buffers_.data());
     assert(result == VK_SUCCESS);
   }
 
@@ -619,6 +623,7 @@ class App {
     image_available_semaphores_.resize(kMaxFrames);
     render_finished_semaphores_.resize(kMaxFrames);
     in_flight_fences_.resize(kMaxFrames);
+    in_flight_images_.resize(swapchain_image_views_.size(), VK_NULL_HANDLE);
 
     VkSemaphoreCreateInfo semaphore_info{};
     semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -639,21 +644,112 @@ class App {
   }
 
   void draw_frame() {
-    vkWaitForFences(device_, 1, in_flight_fences_[current_frame], VK_TRUE,
+    vkWaitForFences(device_, 1, &in_flight_fences_[current_frame_], VK_TRUE,
                     UINT64_MAX);
+    vkResetFences(device_, 1, &in_flight_fences_[current_frame_]);
 
     uint32_t image_index;
     vkAcquireNextImageKHR(device_, swapchain_, UINT64_MAX,
-                          image_available_semaphores_[current_frame],
+                          image_available_semaphores_[current_frame_],
                           VK_NULL_HANDLE, &image_index);
 
-    if (in_flight_fences_[image_index] != VK_NULL_HANDLE) {
-      vkWaitForFences(device_, 1, &in_flight_fences_[image_index], VK_TRUE,
+    if (in_flight_images_[image_index] != VK_NULL_HANDLE) {
+      vkWaitForFences(device_, 1, &in_flight_images_[image_index], VK_TRUE,
                       UINT64_MAX);
     }
-    in_flight_fences_[image_index] = in_flight_fences_[current_frame];
+    in_flight_images_[image_index] = in_flight_fences_[current_frame_];
 
-    current_frame = (current_frame + 1) % kMaxFrames;
+    VkSubmitInfo submit_info {};
+    VkPipelineStageFlags wait_dst_stage_masks[] = {
+      VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+    };
+    submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submit_info.waitSemaphoreCount = 1;
+    submit_info.pWaitSemaphores = &image_available_semaphores_[current_frame_];
+    submit_info.pWaitDstStageMask = wait_dst_stage_masks;
+    submit_info.commandBufferCount = 1;
+    submit_info.pCommandBuffers = &command_buffers_[current_frame_];
+    submit_info.signalSemaphoreCount = 1;
+    submit_info.pSignalSemaphores = &render_finished_semaphores_[current_frame_];
+    VkResult result = vkQueueSubmit(queue_, 1, &submit_info, in_flight_fences_[current_frame_]);
+    assert(result == VK_SUCCESS);
+
+    VkPresentInfoKHR present_info {};
+    present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+    present_info.waitSemaphoreCount = 1;
+    present_info.pWaitSemaphores = &render_finished_semaphores_[current_frame_];
+    present_info.swapchainCount = 1;
+    present_info.pSwapchains = &swapchain_;
+    present_info.pImageIndices = &image_index;
+    vkQueuePresentKHR(queue_, &present_info);
+
+    current_frame_ = (current_frame_ + 1) % kMaxFrames;
+  }
+
+  std::vector<VkImage> get_swapchain_images() {
+    uint32_t image_count;
+    VkResult result = vkGetSwapchainImagesKHR(device_,
+                                              swapchain_,
+                                              &image_count,
+                                              nullptr);
+    assert(result == VK_SUCCESS);
+
+    std::vector<VkImage> images(image_count);
+    result = vkGetSwapchainImagesKHR(device_,
+                                     swapchain_,
+                                     &image_count,
+                                     images.data());
+    assert(result == VK_SUCCESS);
+    return images;
+  }
+
+  void create_vulkan_framebuffers() {
+    // Create one framebuffer per image in the swapchain.
+    std::vector<VkImage> images = get_swapchain_images();
+    swapchain_image_views_.resize(images.size());
+    framebuffers_.resize(images.size());
+    for (size_t i = 0; i < images.size(); ++i) {
+      // A Vulkan image can only be manipulated via an image
+      // view. Let's create one.
+      auto image = images[i];
+      VkImageViewCreateInfo image_view_info{};
+      image_view_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+      image_view_info.image = image;
+      image_view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+      image_view_info.format = swapchain_image_format_;
+      image_view_info.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+      image_view_info.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+      image_view_info.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+      image_view_info.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+      image_view_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+      image_view_info.subresourceRange.baseMipLevel = 0;
+      image_view_info.subresourceRange.levelCount = 1;
+      image_view_info.subresourceRange.baseArrayLayer = 0;
+      image_view_info.subresourceRange.layerCount = 1;
+      VkResult result = vkCreateImageView(device_,
+                                          &image_view_info,
+                                          nullptr,
+                                          &swapchain_image_views_[i]);
+      assert(result == VK_SUCCESS);
+
+      // Let's create a framebuffer.
+      VkImageView attachments[] = {
+        swapchain_image_views_[i]
+      };
+      VkFramebufferCreateInfo framebuffer_info{};
+      framebuffer_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+      framebuffer_info.renderPass = render_pass_;
+      framebuffer_info.attachmentCount = 1;
+      framebuffer_info.pAttachments = attachments;
+      framebuffer_info.width = window_extent_.width;
+      framebuffer_info.height = window_extent_.height;
+      framebuffer_info.layers = 1;
+      result = vkCreateFramebuffer(device_,
+                                   &framebuffer_info,
+                                   nullptr,
+                                   &(framebuffers_[i]));
+      assert(result == VK_SUCCESS);
+    }
   }
 
  public:
@@ -666,9 +762,11 @@ class App {
         device_(VK_NULL_HANDLE),
         queue_(VK_NULL_HANDLE),
         command_pool_(VK_NULL_HANDLE),
-        command_buffer_(VK_NULL_HANDLE),
+        command_buffers_(kMaxFrames, VK_NULL_HANDLE),
         surface_(VK_NULL_HANDLE),
         swapchain_(VK_NULL_HANDLE),
+        swapchain_image_views_{},
+        framebuffers_{},
         shader_module_(VK_NULL_HANDLE),
         pipeline_layout_(VK_NULL_HANDLE),
         pipeline_(VK_NULL_HANDLE),
@@ -676,7 +774,9 @@ class App {
         swapchain_image_format_(VK_FORMAT_UNDEFINED),
         image_available_semaphores_{},
         render_finished_semaphores_{},
-        in_flight_fences_{} {}
+        in_flight_fences_{},
+        in_flight_images_{},
+        current_frame_(0) {}
 
   App(const App&) = delete;
   App(App&&) = delete;
@@ -694,6 +794,7 @@ class App {
     load_shader();
     create_pipeline_layout();
     create_vulkan_pipeline();
+    create_vulkan_framebuffers();
     create_vulkan_command_pool();
     create_vulkan_command_buffer();
     create_sync_objects();
@@ -710,6 +811,10 @@ class App {
     vkDestroyPipeline(device_, pipeline_, nullptr);
     vkDestroyShaderModule(device_, shader_module_, nullptr);
     vkDestroyCommandPool(device_, command_pool_, nullptr);
+    for (size_t i = 0; i < swapchain_image_views_.size(); ++i) {
+      vkDestroyImageView(device_, swapchain_image_views_[i], nullptr);
+      vkDestroyFramebuffer(device_, framebuffers_[i], nullptr);
+    }
     vkDestroySwapchainKHR(device_, swapchain_, nullptr);
     vkDestroyDevice(device_, nullptr);
     vkDestroySurfaceKHR(instance_, surface_, nullptr);
