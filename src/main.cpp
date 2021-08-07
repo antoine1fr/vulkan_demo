@@ -630,6 +630,7 @@ class App {
 
     VkFenceCreateInfo fence_info{};
     fence_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    fence_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
     for (size_t i = 0; i < kMaxFrames; ++i) {
       if (vkCreateSemaphore(device_, &semaphore_info, nullptr,
