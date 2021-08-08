@@ -644,7 +644,7 @@ class App {
     }
   }
 
-  void draw_frame() {
+  uint32_t begin_frame() {
     vkWaitForFences(device_, 1, &in_flight_fences_[current_frame_], VK_TRUE,
                     UINT64_MAX);
     vkResetFences(device_, 1, &in_flight_fences_[current_frame_]);
@@ -660,6 +660,38 @@ class App {
     }
     in_flight_images_[image_index] = in_flight_fences_[current_frame_];
 
+    VkCommandBuffer command_buffer = command_buffers_[current_frame_];
+
+    VkCommandBufferBeginInfo begin_info{};
+    begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+    vkResetCommandBuffer(command_buffer, 0);
+    vkBeginCommandBuffer(command_buffer, &begin_info);
+
+    VkClearValue clear_color = {{{0.0f, 0.0f, 0.0f, 1.0f}}};
+
+    VkRenderPassBeginInfo render_pass_info{};
+    render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    render_pass_info.renderPass = render_pass_;
+    render_pass_info.framebuffer = framebuffers_[image_index];
+    render_pass_info.renderArea.offset = {0, 0};
+    render_pass_info.renderArea.extent = window_extent_;
+    render_pass_info.clearValueCount = 1;
+    render_pass_info.pClearValues = &clear_color;
+
+    vkCmdBeginRenderPass(command_buffer, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
+    vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_);
+
+    return image_index;
+  }
+
+  void end_frame(uint32_t image_index) {
+    VkResult result;
+    VkCommandBuffer command_buffer = command_buffers_[current_frame_];
+
+    vkCmdEndRenderPass(command_buffer);
+    assert(vkEndCommandBuffer(command_buffer) == VK_SUCCESS);
+
     VkSubmitInfo submit_info {};
     VkPipelineStageFlags wait_dst_stage_masks[] = {
       VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
@@ -672,7 +704,7 @@ class App {
     submit_info.pCommandBuffers = &command_buffers_[current_frame_];
     submit_info.signalSemaphoreCount = 1;
     submit_info.pSignalSemaphores = &render_finished_semaphores_[current_frame_];
-    VkResult result = vkQueueSubmit(queue_, 1, &submit_info, in_flight_fences_[current_frame_]);
+    result = vkQueueSubmit(queue_, 1, &submit_info, in_flight_fences_[current_frame_]);
     assert(result == VK_SUCCESS);
 
     VkPresentInfoKHR present_info {};
@@ -685,6 +717,16 @@ class App {
     vkQueuePresentKHR(queue_, &present_info);
 
     current_frame_ = (current_frame_ + 1) % kMaxFrames;
+  }
+
+  void draw_frame() {
+    uint32_t image_index = begin_frame();
+    vkCmdDraw(command_buffers_[current_frame_],
+              3,
+              1,
+              0,
+              0);
+    end_frame(image_index);
   }
 
   std::vector<VkImage> get_swapchain_images() {
