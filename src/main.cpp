@@ -466,7 +466,7 @@ class App {
     info.commandBufferCount = kMaxFrames;
 
     VkResult result =
-      vkAllocateCommandBuffers(device_, &info, command_buffers_.data());
+        vkAllocateCommandBuffers(device_, &info, command_buffers_.data());
     assert(result == VK_SUCCESS);
   }
 
@@ -487,21 +487,22 @@ class App {
     shader_stage_info.module = shader_module_;
     shader_stage_info.pName = "main";
 
-    VkVertexInputBindingDescription vertex_input_bindings[] = {
-        {0, sizeof(Vertex), VK_VERTEX_INPUT_RATE_VERTEX}};
+    // VkVertexInputBindingDescription vertex_input_bindings[] = {
+    //     {0, sizeof(Vertex), VK_VERTEX_INPUT_RATE_VERTEX}};
 
-    VkVertexInputAttributeDescription vertex_attributes[] = {
-        {0, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 0},
-        {1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, normal)},
-        {2, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, uv)}};
+    // VkVertexInputAttributeDescription vertex_attributes[] = {
+    //     {0, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 0},
+    //     {1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, normal)},
+    //     {2, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, uv)}};
 
     VkPipelineVertexInputStateCreateInfo vertex_input_state_info{};
     vertex_input_state_info.sType =
         VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    vertex_input_state_info.vertexBindingDescriptionCount = 1;
-    vertex_input_state_info.pVertexBindingDescriptions = vertex_input_bindings;
-    vertex_input_state_info.vertexAttributeDescriptionCount = 1;
-    vertex_input_state_info.pVertexAttributeDescriptions = vertex_attributes;
+    // vertex_input_state_info.vertexBindingDescriptionCount = 1;
+    // vertex_input_state_info.pVertexBindingDescriptions =
+    // vertex_input_bindings;
+    // vertex_input_state_info.vertexAttributeDescriptionCount = 1;
+    // vertex_input_state_info.pVertexAttributeDescriptions = vertex_attributes;
 
     VkPipelineInputAssemblyStateCreateInfo input_assembly_state_info{};
     input_assembly_state_info.sType =
@@ -647,7 +648,6 @@ class App {
   uint32_t begin_frame() {
     vkWaitForFences(device_, 1, &in_flight_fences_[current_frame_], VK_TRUE,
                     UINT64_MAX);
-    vkResetFences(device_, 1, &in_flight_fences_[current_frame_]);
 
     uint32_t image_index;
     vkAcquireNextImageKHR(device_, swapchain_, UINT64_MAX,
@@ -679,8 +679,10 @@ class App {
     render_pass_info.clearValueCount = 1;
     render_pass_info.pClearValues = &clear_color;
 
-    vkCmdBeginRenderPass(command_buffer, &render_pass_info, VK_SUBPASS_CONTENTS_INLINE);
-    vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_);
+    vkCmdBeginRenderPass(command_buffer, &render_pass_info,
+                         VK_SUBPASS_CONTENTS_INLINE);
+    vkCmdBindPipeline(command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS,
+                      pipeline_);
 
     return image_index;
   }
@@ -692,10 +694,9 @@ class App {
     vkCmdEndRenderPass(command_buffer);
     assert(vkEndCommandBuffer(command_buffer) == VK_SUCCESS);
 
-    VkSubmitInfo submit_info {};
+    VkSubmitInfo submit_info{};
     VkPipelineStageFlags wait_dst_stage_masks[] = {
-      VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
-    };
+        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
     submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     submit_info.waitSemaphoreCount = 1;
     submit_info.pWaitSemaphores = &image_available_semaphores_[current_frame_];
@@ -703,11 +704,15 @@ class App {
     submit_info.commandBufferCount = 1;
     submit_info.pCommandBuffers = &command_buffers_[current_frame_];
     submit_info.signalSemaphoreCount = 1;
-    submit_info.pSignalSemaphores = &render_finished_semaphores_[current_frame_];
-    result = vkQueueSubmit(queue_, 1, &submit_info, in_flight_fences_[current_frame_]);
+    submit_info.pSignalSemaphores =
+        &render_finished_semaphores_[current_frame_];
+
+    vkResetFences(device_, 1, &in_flight_fences_[current_frame_]);
+    result = vkQueueSubmit(queue_, 1, &submit_info,
+                           in_flight_fences_[current_frame_]);
     assert(result == VK_SUCCESS);
 
-    VkPresentInfoKHR present_info {};
+    VkPresentInfoKHR present_info{};
     present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
     present_info.waitSemaphoreCount = 1;
     present_info.pWaitSemaphores = &render_finished_semaphores_[current_frame_];
@@ -721,26 +726,18 @@ class App {
 
   void draw_frame() {
     uint32_t image_index = begin_frame();
-    vkCmdDraw(command_buffers_[current_frame_],
-              3,
-              1,
-              0,
-              0);
+    vkCmdDraw(command_buffers_[current_frame_], 3, 1, 0, 0);
     end_frame(image_index);
   }
 
   std::vector<VkImage> get_swapchain_images() {
     uint32_t image_count;
-    VkResult result = vkGetSwapchainImagesKHR(device_,
-                                              swapchain_,
-                                              &image_count,
-                                              nullptr);
+    VkResult result =
+        vkGetSwapchainImagesKHR(device_, swapchain_, &image_count, nullptr);
     assert(result == VK_SUCCESS);
 
     std::vector<VkImage> images(image_count);
-    result = vkGetSwapchainImagesKHR(device_,
-                                     swapchain_,
-                                     &image_count,
+    result = vkGetSwapchainImagesKHR(device_, swapchain_, &image_count,
                                      images.data());
     assert(result == VK_SUCCESS);
     return images;
@@ -769,16 +766,12 @@ class App {
       image_view_info.subresourceRange.levelCount = 1;
       image_view_info.subresourceRange.baseArrayLayer = 0;
       image_view_info.subresourceRange.layerCount = 1;
-      VkResult result = vkCreateImageView(device_,
-                                          &image_view_info,
-                                          nullptr,
+      VkResult result = vkCreateImageView(device_, &image_view_info, nullptr,
                                           &swapchain_image_views_[i]);
       assert(result == VK_SUCCESS);
 
       // Let's create a framebuffer.
-      VkImageView attachments[] = {
-        swapchain_image_views_[i]
-      };
+      VkImageView attachments[] = {swapchain_image_views_[i]};
       VkFramebufferCreateInfo framebuffer_info{};
       framebuffer_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
       framebuffer_info.renderPass = render_pass_;
@@ -787,9 +780,7 @@ class App {
       framebuffer_info.width = window_extent_.width;
       framebuffer_info.height = window_extent_.height;
       framebuffer_info.layers = 1;
-      result = vkCreateFramebuffer(device_,
-                                   &framebuffer_info,
-                                   nullptr,
+      result = vkCreateFramebuffer(device_, &framebuffer_info, nullptr,
                                    &(framebuffers_[i]));
       assert(result == VK_SUCCESS);
     }
@@ -824,6 +815,7 @@ class App {
   App(const App&) = delete;
   App(App&&) = delete;
   const App& operator=(const App&) = delete;
+  App& operator=(App&&) = delete;
 
   void init_vulkan() {
     window_ = SDL_CreateWindow("Vulkan demo", 0, 0, window_extent_.width,
@@ -876,12 +868,13 @@ class App {
       draw_frame();
       SDL_Delay(16);
     }
+    vkDeviceWaitIdle(device_);
   }
 };
 
 int main() {
-  App app;
   assert(SDL_Init(SDL_INIT_EVERYTHING) == 0);
+  App app;
   app.init_vulkan();
   app.run();
   app.cleanup();
