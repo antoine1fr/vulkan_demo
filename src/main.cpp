@@ -74,7 +74,8 @@ class App {
   VkSwapchainKHR swapchain_;
   std::vector<VkImageView> swapchain_image_views_;
   std::vector<VkFramebuffer> framebuffers_;
-  VkShaderModule shader_module_;
+  VkShaderModule vertex_shader_module_;
+  VkShaderModule fragment_shader_module_;
   VkPipelineLayout pipeline_layout_;
   VkPipeline pipeline_;
   VkRenderPass render_pass_;
@@ -203,7 +204,8 @@ class App {
     assert(result == VK_SUCCESS);
 
     size_t best_index = 0;
-    for (size_t i = 0; i < formats.size(); ++i) {
+    bool found = false;
+    for (size_t i = 0; !found && i < formats.size(); ++i) {
       switch (formats[i].format) {
         case VK_FORMAT_R32G32B32A32_SFLOAT:
         case VK_FORMAT_R32G32B32_SFLOAT:
@@ -214,6 +216,7 @@ class App {
         case VK_FORMAT_R8G8B8A8_UNORM:
         case VK_FORMAT_B8G8R8A8_UNORM:
           best_index = i;
+          found = true;
           break;
         default:
           break;
@@ -480,12 +483,19 @@ class App {
   void create_vulkan_pipeline() {
     VkResult result;
 
-    VkPipelineShaderStageCreateInfo shader_stage_info{};
-    shader_stage_info.sType =
+    VkPipelineShaderStageCreateInfo vertex_shader_stage_info{};
+    vertex_shader_stage_info.sType =
         VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    shader_stage_info.stage = VK_SHADER_STAGE_VERTEX_BIT;
-    shader_stage_info.module = shader_module_;
-    shader_stage_info.pName = "main";
+    vertex_shader_stage_info.stage = VK_SHADER_STAGE_VERTEX_BIT;
+    vertex_shader_stage_info.module = vertex_shader_module_;
+    vertex_shader_stage_info.pName = "main";
+
+    VkPipelineShaderStageCreateInfo fragment_shader_stage_info{};
+    fragment_shader_stage_info.sType =
+        VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    fragment_shader_stage_info.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+    fragment_shader_stage_info.module = fragment_shader_module_;
+    fragment_shader_stage_info.pName = "main";
 
     // VkVertexInputBindingDescription vertex_input_bindings[] = {
     //     {0, sizeof(Vertex), VK_VERTEX_INPUT_RATE_VERTEX}};
@@ -507,11 +517,15 @@ class App {
     VkPipelineInputAssemblyStateCreateInfo input_assembly_state_info{};
     input_assembly_state_info.sType =
         VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
-    input_assembly_state_info.topology = VK_PRIMITIVE_TOPOLOGY_POINT_LIST;
+    input_assembly_state_info.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
 
-    VkViewport viewport{
-        0.0f, 0.0f,   (float)window_extent_.width, (float)window_extent_.height,
-        0.1,  1000.0f};
+    VkViewport viewport{};
+    viewport.x = 0.0f;
+    viewport.y = 0.0f;
+    viewport.width = (float)window_extent_.width;
+    viewport.height = (float)window_extent_.height;
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
 
     VkRect2D scissor = {{0, 0}, window_extent_};
 
@@ -526,11 +540,16 @@ class App {
     VkPipelineRasterizationStateCreateInfo rasterization_state_info{};
     rasterization_state_info.sType =
         VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-    rasterization_state_info.rasterizerDiscardEnable = VK_TRUE;
+    // rasterization_state_info.rasterizerDiscardEnable = VK_TRUE;
     rasterization_state_info.polygonMode = VK_POLYGON_MODE_FILL;
     rasterization_state_info.cullMode = VK_CULL_MODE_NONE;
     rasterization_state_info.frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     rasterization_state_info.lineWidth = 1.0f;
+
+    VkPipelineMultisampleStateCreateInfo multisampling_state_info{};
+    multisampling_state_info.sType =
+        VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+    multisampling_state_info.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
 
     VkPipelineColorBlendAttachmentState color_blend_attachment{};
     color_blend_attachment.colorWriteMask =
@@ -584,14 +603,17 @@ class App {
         vkCreateRenderPass(device_, &render_pass_info, nullptr, &render_pass_);
     assert(result == VK_SUCCESS);
 
+    VkPipelineShaderStageCreateInfo shader_stages[] = {
+        vertex_shader_stage_info, fragment_shader_stage_info};
     VkGraphicsPipelineCreateInfo info{};
     info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
-    info.stageCount = 1;
-    info.pStages = &shader_stage_info;
+    info.stageCount = 2;
+    info.pStages = shader_stages;
     info.pVertexInputState = &vertex_input_state_info;
     info.pInputAssemblyState = &input_assembly_state_info;
     info.pViewportState = &viewport_state_info;
     info.pRasterizationState = &rasterization_state_info;
+    info.pMultisampleState = &multisampling_state_info;
     info.pColorBlendState = &color_blend_state_info;
     info.layout = pipeline_layout_;
     info.renderPass = render_pass_;
@@ -601,23 +623,34 @@ class App {
     assert(result == VK_SUCCESS);
   }
 
-  void load_shader() {
-    // TODO: load a vertex shader and a fragment shader.
-    std::ifstream stream("vertex.spv", std::ios::ate);
+  std::string load_file(const std::string& path) {
+    std::ifstream stream(path, std::ios::ate);
     assert(stream);
     std::size_t length = stream.tellg();
     stream.seekg(0, std::ios_base::beg);
     std::string sources(length, '\0');
     stream.read(sources.data(), length);
+    return sources;
+  }
+
+  VkShaderModule load_shader(const std::string& path) {
+    std::string sources = load_file(path);
 
     VkShaderModuleCreateInfo info{};
     info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
     info.codeSize = sources.length();
     info.pCode = reinterpret_cast<uint32_t*>(sources.data());
 
+    VkShaderModule shader_module;
     VkResult result =
-        vkCreateShaderModule(device_, &info, nullptr, &shader_module_);
+        vkCreateShaderModule(device_, &info, nullptr, &shader_module);
     assert(result == VK_SUCCESS);
+    return shader_module;
+  }
+
+  void load_shaders() {
+    vertex_shader_module_ = load_shader("vertex.spv");
+    fragment_shader_module_ = load_shader("fragment.spv");
   }
 
   void create_sync_objects() {
@@ -702,7 +735,7 @@ class App {
     submit_info.pWaitSemaphores = &image_available_semaphores_[current_frame_];
     submit_info.pWaitDstStageMask = wait_dst_stage_masks;
     submit_info.commandBufferCount = 1;
-    submit_info.pCommandBuffers = &command_buffers_[current_frame_];
+    submit_info.pCommandBuffers = &command_buffer;
     submit_info.signalSemaphoreCount = 1;
     submit_info.pSignalSemaphores =
         &render_finished_semaphores_[current_frame_];
@@ -801,7 +834,8 @@ class App {
         swapchain_(VK_NULL_HANDLE),
         swapchain_image_views_{},
         framebuffers_{},
-        shader_module_(VK_NULL_HANDLE),
+        vertex_shader_module_(VK_NULL_HANDLE),
+        fragment_shader_module_(VK_NULL_HANDLE),
         pipeline_layout_(VK_NULL_HANDLE),
         pipeline_(VK_NULL_HANDLE),
         render_pass_(VK_NULL_HANDLE),
@@ -826,7 +860,7 @@ class App {
     find_physical_device();
     create_device();
     create_vulkan_swapchain();
-    load_shader();
+    load_shaders();
     create_pipeline_layout();
     create_vulkan_pipeline();
     create_vulkan_framebuffers();
@@ -844,7 +878,8 @@ class App {
     vkDestroyPipelineLayout(device_, pipeline_layout_, nullptr);
     vkDestroyRenderPass(device_, render_pass_, nullptr);
     vkDestroyPipeline(device_, pipeline_, nullptr);
-    vkDestroyShaderModule(device_, shader_module_, nullptr);
+    vkDestroyShaderModule(device_, vertex_shader_module_, nullptr);
+    vkDestroyShaderModule(device_, fragment_shader_module_, nullptr);
     vkDestroyCommandPool(device_, command_pool_, nullptr);
     for (size_t i = 0; i < swapchain_image_views_.size(); ++i) {
       vkDestroyImageView(device_, swapchain_image_views_[i], nullptr);
