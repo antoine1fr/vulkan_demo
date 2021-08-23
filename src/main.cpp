@@ -157,12 +157,6 @@ class App {
     result = vkEnumerateInstanceLayerProperties(&layer_count,
                                                 layer_properties.data());
     assert(result == VK_SUCCESS);
-    // std::cout << "Instance layer names:\n";
-    // for (auto properties: layer_properties)
-    // {
-    //   std::cout << " - " << properties.layerName << ": " <<
-    //   properties.description << '\n';
-    // }
     std::vector<const char*> layer_names{"VK_LAYER_KHRONOS_validation"};
     check_layers(layer_properties, layer_names);
 
@@ -259,42 +253,6 @@ class App {
     assert(result == VK_SUCCESS);
   }
 
-  // static std::string device_type_to_string(VkPhysicalDeviceType type)
-  // {
-  //   switch (type)
-  //   {
-  //   case VK_PHYSICAL_DEVICE_TYPE_OTHER:
-  //     return "Other";
-  //   case VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU:
-  //     return "Integrated GPU";
-  //   case VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU:
-  //     return "Discrete GPU";
-  //   case VK_PHYSICAL_DEVICE_TYPE_VIRTUAL_GPU:
-  //     return "Virtual GPU";
-  //   case VK_PHYSICAL_DEVICE_TYPE_CPU:
-  //     return "CPU";
-  //   default:
-  //     assert(false);
-  //     return "";
-  //   }
-  // }
-
-  // static std::string pipeline_cache_uuid_to_string(uint8_t
-  // uuid[VK_UUID_SIZE])
-  // {
-  //   std::ostringstream stream;
-  //   for (size_t i = 0; i < VK_UUID_SIZE; ++i)
-  //   {
-  //     if ((i > 0) && ((i % 4) == 0))
-  //       stream << '-';
-  //     stream << std::hex
-  //            << std::setw(2)
-  //            << std::setfill('0')
-  //            << static_cast<uint32_t>(uuid[i]);
-  //   }
-  //   return stream.str();
-  // }
-
   // The SDL doesn't seem to offer any way to retrieve the physical
   // device it used to create the presentation surface. So we need to
   // enumerate the Vulkan-compatible devices that have
@@ -331,22 +289,6 @@ class App {
       }
       assert(false);
     }
-
-    // std::cout << "Vulkan-compatible physical devices:\n";
-    // for (const auto& device: physical_devices)
-    // {
-    //   VkPhysicalDeviceProperties properties;
-    //   vkGetPhysicalDeviceProperties(device, &properties);
-    //   std::cout << " - " << properties.deviceName << '\n';
-    //   std::cout << "   * API version: " << properties.apiVersion << '\n';
-    //   std::cout << "   * Driver version: " << properties.driverVersion <<
-    //   '\n'; std::cout << "   * Vendor ID: " << properties.vendorID << '\n';
-    //   std::cout << "   * Properties ID: " << properties.deviceID << '\n';
-    //   std::cout << "   * Properties type: " <<
-    //   device_type_to_string(properties.deviceType) << '\n'; std::cout << "
-    //   * UUID: " <<
-    //   pipeline_cache_uuid_to_string(properties.pipelineCacheUUID) << '\n';
-    // }
   }
 
   void enumerate_device_extensions(
@@ -363,10 +305,7 @@ class App {
         device, nullptr, &extension_count, extensions.data());
     assert(result == VK_SUCCESS);
 
-    // std::cout << "Available extensions for device:\n";
     for (const auto& extension : extensions) {
-      // std::cout << " - " << extension.extensionName
-      //           << " (spec version " << extension.specVersion << ")\n";
       extension_map[extension.extensionName] = extension;
     }
   }
@@ -393,31 +332,6 @@ class App {
     std::cout << std::left << std::setfill(' ');
     assert(missing_extension == false);
   }
-
-  // static uint32_t get_queue_family_index(VkPhysicalDevice physical_device)
-  // {
-  //   uint32_t queue_family_count;
-  //   vkGetPhysicalDeviceQueueFamilyProperties(physical_device,
-  //                                            &queue_family_count,
-  //                                            nullptr);
-  //   assert(queue_family_count > 0);
-
-  //   std::vector<VkQueueFamilyProperties> queue_families(queue_family_count);
-  //   vkGetPhysicalDeviceQueueFamilyProperties(physical_device,
-  //                                            &queue_family_count,
-  //                                            queue_families.data());
-  //   // Let's return the first family that supports graphics operations,
-  //   // as we only need that for the moment.
-  //   for (size_t i = 0; i < queue_families.size(); ++i)
-  //   {
-  //     const auto& family = queue_families[i];
-  //     if (family.queueFlags & VK_QUEUE_GRAPHICS_BIT)
-  //       return i;
-  //   }
-  //   std::cerr << "Found no queue family capable of graphics operations"
-  //             << " for selected physical device.\n";
-  //   assert(false);
-  // }
 
   void create_device() {
     std::vector<const char*> extensions {
