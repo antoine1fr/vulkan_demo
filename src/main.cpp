@@ -10,6 +10,7 @@
 
 // STL
 #include <algorithm>
+#include <array>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -26,9 +27,30 @@
 #endif
 
 struct Vertex {
-  glm::vec4 position;
-  glm::vec3 normal;
-  glm::vec2 uv;
+  glm::vec2 position;
+  glm::vec3 color;
+
+  static VkVertexInputBindingDescription get_binding_description() {
+    VkVertexInputBindingDescription desc{};
+    desc.binding = 0;
+    desc.stride = sizeof(Vertex);
+    desc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+    return desc;
+  }
+
+  static std::array<VkVertexInputAttributeDescription, 2>
+  get_attribute_descriptions() {
+    std::array<VkVertexInputAttributeDescription, 2> descs{};
+    descs[0].binding = 0;
+    descs[0].location = 0;
+    descs[0].format = VK_FORMAT_R32G32_SFLOAT;
+    descs[0].offset = offsetof(Vertex, position);
+    descs[1].binding = 0;
+    descs[1].location = 1;
+    descs[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+    descs[1].offset = offsetof(Vertex, color);
+    return descs;
+  }
 };
 
 static size_t get_terminal_width() {
@@ -85,6 +107,8 @@ class App {
   std::vector<VkFence> in_flight_fences_;
   std::vector<VkFence> in_flight_images_;
   size_t current_frame_;
+  VkBuffer vertex_buffer_;
+  VkDeviceMemory vertex_buffer_memory_;
 
  private:
   void check_extensions(
@@ -411,22 +435,18 @@ class App {
     fragment_shader_stage_info.module = fragment_shader_module_;
     fragment_shader_stage_info.pName = "main";
 
-    // VkVertexInputBindingDescription vertex_input_bindings[] = {
-    //     {0, sizeof(Vertex), VK_VERTEX_INPUT_RATE_VERTEX}};
-
-    // VkVertexInputAttributeDescription vertex_attributes[] = {
-    //     {0, 0, VK_FORMAT_R32G32B32A32_SFLOAT, 0},
-    //     {1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, normal)},
-    //     {2, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, uv)}};
+    auto binding_description = Vertex::get_binding_description();
+    auto attribute_descriptions = Vertex::get_attribute_descriptions();
 
     VkPipelineVertexInputStateCreateInfo vertex_input_state_info{};
     vertex_input_state_info.sType =
         VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    // vertex_input_state_info.vertexBindingDescriptionCount = 1;
-    // vertex_input_state_info.pVertexBindingDescriptions =
-    // vertex_input_bindings;
-    // vertex_input_state_info.vertexAttributeDescriptionCount = 1;
-    // vertex_input_state_info.pVertexAttributeDescriptions = vertex_attributes;
+    vertex_input_state_info.vertexBindingDescriptionCount = 1;
+    vertex_input_state_info.pVertexBindingDescriptions = &binding_description;
+    vertex_input_state_info.vertexAttributeDescriptionCount =
+        static_cast<uint32_t>(attribute_descriptions.size());
+    vertex_input_state_info.pVertexAttributeDescriptions =
+        attribute_descriptions.data();
 
     VkPipelineInputAssemblyStateCreateInfo input_assembly_state_info{};
     input_assembly_state_info.sType =
@@ -673,7 +693,14 @@ class App {
 
   void draw_frame() {
     uint32_t image_index = begin_frame();
+
+    VkBuffer vertex_buffers[] = {vertex_buffer_};
+    VkDeviceSize offsets[] = {0};
+    vkCmdBindVertexBuffers(command_buffers_[current_frame_], 0, 1,
+                           vertex_buffers, offsets);
+
     vkCmdDraw(command_buffers_[current_frame_], 3, 1, 0, 0);
+
     end_frame(image_index);
   }
 
@@ -733,6 +760,68 @@ class App {
     }
   }
 
+  uint32_t find_memory_type(uint32_t type_filter,
+                            VkMemoryPropertyFlags properties) {
+    VkPhysicalDeviceMemoryProperties memory_properties;
+    vkGetPhysicalDeviceMemoryProperties(physical_device_, &memory_properties);
+
+    for (uint32_t i = 0; i < memory_properties.memoryTypeCount; ++i) {
+      if (type_filter & (1 << i) &&
+          (memory_properties.memoryTypes[i].propertyFlags & properties) ==
+              properties) {
+        return i;
+      }
+    }
+    assert(false);
+  }
+
+  void create_vulkan_vertex_buffer() {
+    std::array<Vertex, 3> vertices{};
+    vertices[0].position = glm::vec2(0.0f, -0.5f);
+    vertices[0].color = glm::vec3(1.0f, 0.0f, 0.0f);
+    vertices[1].position = glm::vec2(0.5f, 0.5f);
+    vertices[1].color = glm::vec3(0.0f, 1.0f, 0.0f);
+    vertices[2].position = glm::vec2(-0.5f, 0.5f);
+    vertices[2].color = glm::vec3(0.0f, 0.0f, 1.0f);
+
+    // Create vertex buffer:
+
+    VkBufferCreateInfo info{};
+    info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    info.size = sizeof(vertices[0]) * vertices.size();
+    info.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+    info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    VkResult result = vkCreateBuffer(device_, &info, nullptr, &vertex_buffer_);
+    assert(result == VK_SUCCESS);
+
+    // Allocate memory for buffer:
+
+    VkMemoryRequirements memory_requirements;
+    vkGetBufferMemoryRequirements(device_, vertex_buffer_,
+                                  &memory_requirements);
+
+    VkMemoryAllocateInfo alloc_info{};
+    alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    alloc_info.allocationSize = memory_requirements.size;
+    alloc_info.memoryTypeIndex =
+        find_memory_type(memory_requirements.memoryTypeBits,
+                         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                             VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    result =
+        vkAllocateMemory(device_, &alloc_info, nullptr, &vertex_buffer_memory_);
+    assert(result == VK_SUCCESS);
+
+    // Bind memory to buffer:
+    vkBindBufferMemory(device_, vertex_buffer_, vertex_buffer_memory_, 0);
+
+    // Fill up buffer memory with data:
+    void* data;
+    vkMapMemory(device_, vertex_buffer_memory_, 0, info.size, 0, &data);
+    memcpy(data, vertices.data(), (size_t)info.size);
+    vkUnmapMemory(device_, vertex_buffer_memory_);
+  }
+
  public:
   App()
       : window_extent_{800, 600},
@@ -779,6 +868,7 @@ class App {
     create_vulkan_pipeline();
     create_vulkan_framebuffers();
     create_vulkan_command_pool();
+    create_vulkan_vertex_buffer();
     create_vulkan_command_buffer();
     create_sync_objects();
   }
@@ -794,6 +884,8 @@ class App {
     vkDestroyPipeline(device_, pipeline_, nullptr);
     vkDestroyShaderModule(device_, vertex_shader_module_, nullptr);
     vkDestroyShaderModule(device_, fragment_shader_module_, nullptr);
+    vkDestroyBuffer(device_, vertex_buffer_, nullptr);
+    vkFreeMemory(device_, vertex_buffer_memory_, nullptr);
     vkDestroyCommandPool(device_, command_pool_, nullptr);
     for (size_t i = 0; i < swapchain_image_views_.size(); ++i) {
       vkDestroyImageView(device_, swapchain_image_views_[i], nullptr);
