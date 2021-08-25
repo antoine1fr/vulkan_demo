@@ -775,31 +775,25 @@ class App {
     assert(false);
   }
 
-  void create_vulkan_vertex_buffer() {
-    std::array<Vertex, 3> vertices{};
-    vertices[0].position = glm::vec2(0.0f, -0.5f);
-    vertices[0].color = glm::vec3(1.0f, 0.0f, 0.0f);
-    vertices[1].position = glm::vec2(0.5f, 0.5f);
-    vertices[1].color = glm::vec3(0.0f, 1.0f, 0.0f);
-    vertices[2].position = glm::vec2(-0.5f, 0.5f);
-    vertices[2].color = glm::vec3(0.0f, 0.0f, 1.0f);
-
+  void create_vulkan_buffer(VkBufferUsageFlags usage,
+                            VkDeviceSize size,
+                            VkBuffer* buffer,
+                            VkDeviceMemory* memory) {
     // Create vertex buffer:
 
     VkBufferCreateInfo info{};
     info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    info.size = sizeof(vertices[0]) * vertices.size();
-    info.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+    info.size = size;
+    info.usage = usage;
     info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-    VkResult result = vkCreateBuffer(device_, &info, nullptr, &vertex_buffer_);
+    VkResult result = vkCreateBuffer(device_, &info, nullptr, buffer);
     assert(result == VK_SUCCESS);
 
     // Allocate memory for buffer:
 
     VkMemoryRequirements memory_requirements;
-    vkGetBufferMemoryRequirements(device_, vertex_buffer_,
-                                  &memory_requirements);
+    vkGetBufferMemoryRequirements(device_, *buffer, &memory_requirements);
 
     VkMemoryAllocateInfo alloc_info{};
     alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
@@ -808,17 +802,31 @@ class App {
         find_memory_type(memory_requirements.memoryTypeBits,
                          VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
                              VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-    result =
-        vkAllocateMemory(device_, &alloc_info, nullptr, &vertex_buffer_memory_);
+    result = vkAllocateMemory(device_, &alloc_info, nullptr, memory);
     assert(result == VK_SUCCESS);
 
     // Bind memory to buffer:
-    vkBindBufferMemory(device_, vertex_buffer_, vertex_buffer_memory_, 0);
+    vkBindBufferMemory(device_, *buffer, *memory, 0);
+  }
+
+  void create_vulkan_vertex_buffer() {
+    std::array<Vertex, 3> vertices{};
+    vertices[0].position = glm::vec2(0.0f, -0.5f);
+    vertices[0].color = glm::vec3(1.0f, 0.0f, 0.0f);
+    vertices[1].position = glm::vec2(0.5f, 0.5f);
+    vertices[1].color = glm::vec3(0.0f, 1.0f, 0.0f);
+    vertices[2].position = glm::vec2(-0.5f, 0.5f);
+    vertices[2].color = glm::vec3(0.0f, 0.0f, 1.0f);
+    size_t size = sizeof(vertices[0]) * vertices.size();
+
+    create_vulkan_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+                         static_cast<VkDeviceSize>(size), &vertex_buffer_,
+                         &vertex_buffer_memory_);
 
     // Fill up buffer memory with data:
     void* data;
-    vkMapMemory(device_, vertex_buffer_memory_, 0, info.size, 0, &data);
-    memcpy(data, vertices.data(), (size_t)info.size);
+    vkMapMemory(device_, vertex_buffer_memory_, 0, size, 0, &data);
+    memcpy(data, vertices.data(), size);
     vkUnmapMemory(device_, vertex_buffer_memory_);
   }
 
