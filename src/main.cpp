@@ -145,6 +145,8 @@ class App {
   VkDescriptorSetLayout descriptor_set_layout_;
   VkDescriptorPool descriptor_pool_;
   std::vector<VkDescriptorSet> descriptor_sets_;
+  std::unordered_map<uint32_t, VkBuffer> vulkan_buffers_;
+  Frame frame_;
 
  private:
   void check_extensions(
@@ -748,12 +750,17 @@ class App {
   void draw_frame() {
     uint32_t image_index = begin_frame();
 
-    VkBuffer vertex_buffers[] = {vertex_buffer_};
-    VkDeviceSize offsets[] = {0};
-    vkCmdBindVertexBuffers(command_buffers_[current_frame_], 0, 1,
-                           vertex_buffers, offsets);
-
-    vkCmdDraw(command_buffers_[current_frame_], 3, 1, 0, 0);
+    for (const auto& pass : frame_.passes) {
+      for (const auto& render_object : pass.render_objects) {
+        VkBuffer vertex_buffer =
+            vulkan_buffers_[render_object.vertex_buffer_id];
+        VkBuffer vertex_buffers[] = {vertex_buffer};
+        VkDeviceSize offsets[] = {0};
+        vkCmdBindVertexBuffers(command_buffers_[current_frame_], 0, 1,
+                               vertex_buffers, offsets);
+        vkCmdDraw(command_buffers_[current_frame_], 3, 1, 0, 0);
+      }
+    }
 
     end_frame(image_index);
   }
@@ -891,11 +898,8 @@ class App {
     object_ubo_memories_.resize(swapchain_image_views_.size());
     for (size_t i = 0; i < swapchain_image_views_.size(); ++i) {
       create_vulkan_buffer(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                           sizeof(PassUniforms), &pass_ubos_[i],
-                           &pass_ubo_memories_[i]);
-      create_vulkan_buffer(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                           sizeof(PassUniforms), &object_ubos_[i],
-                           &object_ubo_memories_[i]);
+                           sizeof(PassUniforms) + sizeof(ObjectUniforms),
+                           &pass_ubos_[i], &pass_ubo_memories_[i]);
     }
   }
 
@@ -932,7 +936,7 @@ class App {
       VkDescriptorBufferInfo buffer_info{};
       buffer_info.buffer = pass_ubos_[i];
       buffer_info.offset = 0;
-      buffer_info.range = sizeof(PassUniforms);
+      buffer_info.range = sizeof(PassUniforms) + sizeof(ObjectUniforms);
 
       VkWriteDescriptorSet write{};
       write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -945,6 +949,17 @@ class App {
 
       vkUpdateDescriptorSets(device_, 1, &write, 0, nullptr);
     }
+  }
+
+  void init_frame() {
+    std::hash<std::string> hash{};
+    uint32_t id = hash("triangle_vertex_buffer");
+    vulkan_buffers_[id] = vertex_buffer_;
+
+    Frame::Pass::RenderObject render_object{id};
+    Frame::Pass pass{};
+    pass.render_objects.push_back(render_object);
+    frame_.passes.push_back(pass);
   }
 
  public:
@@ -981,7 +996,9 @@ class App {
         object_ubo_memories_{},
         descriptor_set_layout_(VK_NULL_HANDLE),
         descriptor_pool_(VK_NULL_HANDLE),
-        descriptor_sets_{} {}
+        descriptor_sets_{},
+        vulkan_buffers_{},
+        frame_{} {}
 
   App(const App&) = delete;
   App(App&&) = delete;
@@ -1008,6 +1025,7 @@ class App {
     create_sync_objects();
     create_descriptor_pool();
     allocate_descriptor_sets();
+    init_frame();
   }
 
   void cleanup() {
