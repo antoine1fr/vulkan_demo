@@ -21,8 +21,10 @@ target_compile_features(vulkan_demo PRIVATE cxx_std_17)
 set_target_properties(vulkan_demo PROPERTIES CXX_EXTENSIONS OFF)
 
 if (UNIX)
-  set(CMAKE_CXX_FLAGS_DEBUG "-g3 -O0")
+  string(APPEND CMAKE_CXX_FLAGS_DEBUG " -g3 -O0")
 endif()
+
+string(APPEND CMAKE_CXX_FLAGS_DEBUG " -DDEBUG")
 
 if(APPLE)
   set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} \

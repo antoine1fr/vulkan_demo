@@ -26,6 +26,35 @@
 #define DEMO_BUILD_LINUX
 #endif
 
+#if defined(DEBUG)
+#define SUCCESS(x) assert((x) == VK_SUCCESS)
+#else
+#define SUCCESS(x) x
+#endif
+
+struct PassUniforms {
+  glm::mat4 view_matrix;
+  glm::mat4 projection_matrix;
+};
+
+struct ObjectUniforms {
+  glm::mat4 world_matrix;
+};
+
+struct Frame {
+  struct Pass {
+    struct RenderObject {
+      std::vector<uint8_t> uniforms;
+      uint32_t vertex_buffer_id;
+    };
+
+    std::vector<RenderObject> render_objects;
+    std::vector<uint8_t> uniforms;
+  };
+
+  std::vector<Pass> passes;
+};
+
 struct Vertex {
   glm::vec2 position;
   glm::vec3 color;
@@ -109,6 +138,13 @@ class App {
   size_t current_frame_;
   VkBuffer vertex_buffer_;
   VkDeviceMemory vertex_buffer_memory_;
+  std::vector<VkBuffer> pass_ubos_;
+  std::vector<VkBuffer> object_ubos_;
+  std::vector<VkDeviceMemory> pass_ubo_memories_;
+  std::vector<VkDeviceMemory> object_ubo_memories_;
+  VkDescriptorSetLayout descriptor_set_layout_;
+  VkDescriptorPool descriptor_pool_;
+  std::vector<VkDescriptorSet> descriptor_sets_;
 
  private:
   void check_extensions(
@@ -412,8 +448,26 @@ class App {
   }
 
   void create_pipeline_layout() {
+    VkDescriptorSetLayoutBinding binding{};
+    binding.binding = 0;
+    binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    binding.descriptorCount = 1;
+    binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+    VkDescriptorSetLayoutCreateInfo descriptor_layout_info{};
+    descriptor_layout_info.sType =
+        VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    descriptor_layout_info.bindingCount = 1;
+    descriptor_layout_info.pBindings = &binding;
+
+    assert(vkCreateDescriptorSetLayout(device_, &descriptor_layout_info,
+                                       nullptr,
+                                       &descriptor_set_layout_) == VK_SUCCESS);
+
     VkPipelineLayoutCreateInfo info{};
     info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    info.setLayoutCount = 1;
+    info.pSetLayouts = &descriptor_set_layout_;
     assert(vkCreatePipelineLayout(device_, &info, nullptr, &pipeline_layout_) ==
            VK_SUCCESS);
   }
@@ -830,6 +884,69 @@ class App {
     vkUnmapMemory(device_, vertex_buffer_memory_);
   }
 
+  void create_uniform_buffer_objects() {
+    pass_ubos_.resize(swapchain_image_views_.size());
+    pass_ubo_memories_.resize(swapchain_image_views_.size());
+    object_ubos_.resize(swapchain_image_views_.size());
+    object_ubo_memories_.resize(swapchain_image_views_.size());
+    for (size_t i = 0; i < swapchain_image_views_.size(); ++i) {
+      create_vulkan_buffer(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                           sizeof(PassUniforms), &pass_ubos_[i],
+                           &pass_ubo_memories_[i]);
+      create_vulkan_buffer(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                           sizeof(PassUniforms), &object_ubos_[i],
+                           &object_ubo_memories_[i]);
+    }
+  }
+
+  void create_descriptor_pool() {
+    VkDescriptorPoolSize pool_size{};
+    pool_size.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    pool_size.descriptorCount =
+        static_cast<uint32_t>(swapchain_image_views_.size());
+
+    VkDescriptorPoolCreateInfo info{};
+    info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    info.maxSets = static_cast<uint32_t>(swapchain_image_views_.size());
+    info.poolSizeCount = 1;
+    info.pPoolSizes = &pool_size;
+
+    SUCCESS(vkCreateDescriptorPool(device_, &info, nullptr, &descriptor_pool_));
+  }
+
+  void allocate_descriptor_sets() {
+    std::vector<VkDescriptorSetLayout> layouts(swapchain_image_views_.size(),
+                                               descriptor_set_layout_);
+    descriptor_sets_.resize(layouts.size());
+
+    VkDescriptorSetAllocateInfo info{};
+    info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    info.descriptorPool = descriptor_pool_;
+    info.descriptorSetCount =
+        static_cast<uint32_t>(swapchain_image_views_.size());
+    info.pSetLayouts = layouts.data();
+
+    SUCCESS(vkAllocateDescriptorSets(device_, &info, descriptor_sets_.data()));
+
+    for (size_t i = 0; i < layouts.size(); ++i) {
+      VkDescriptorBufferInfo buffer_info{};
+      buffer_info.buffer = pass_ubos_[i];
+      buffer_info.offset = 0;
+      buffer_info.range = sizeof(PassUniforms);
+
+      VkWriteDescriptorSet write{};
+      write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+      write.dstSet = descriptor_sets_[i];
+      write.dstBinding = 0;
+      write.dstArrayElement = 0;
+      write.descriptorCount = 1;
+      write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+      write.pBufferInfo = &buffer_info;
+
+      vkUpdateDescriptorSets(device_, 1, &write, 0, nullptr);
+    }
+  }
+
  public:
   App()
       : window_extent_{800, 600},
@@ -855,7 +972,16 @@ class App {
         render_finished_semaphores_{},
         in_flight_fences_{},
         in_flight_images_{},
-        current_frame_(0) {}
+        current_frame_(0),
+        vertex_buffer_(VK_NULL_HANDLE),
+        vertex_buffer_memory_(VK_NULL_HANDLE),
+        pass_ubos_{},
+        object_ubos_{},
+        pass_ubo_memories_{},
+        object_ubo_memories_{},
+        descriptor_set_layout_(VK_NULL_HANDLE),
+        descriptor_pool_(VK_NULL_HANDLE),
+        descriptor_sets_{} {}
 
   App(const App&) = delete;
   App(App&&) = delete;
@@ -877,8 +1003,11 @@ class App {
     create_vulkan_framebuffers();
     create_vulkan_command_pool();
     create_vulkan_vertex_buffer();
+    create_uniform_buffer_objects();
     create_vulkan_command_buffer();
     create_sync_objects();
+    create_descriptor_pool();
+    allocate_descriptor_sets();
   }
 
   void cleanup() {
@@ -895,7 +1024,13 @@ class App {
     vkDestroyBuffer(device_, vertex_buffer_, nullptr);
     vkFreeMemory(device_, vertex_buffer_memory_, nullptr);
     vkDestroyCommandPool(device_, command_pool_, nullptr);
+    vkDestroyDescriptorPool(device_, descriptor_pool_, nullptr);
+    vkDestroyDescriptorSetLayout(device_, descriptor_set_layout_, nullptr);
     for (size_t i = 0; i < swapchain_image_views_.size(); ++i) {
+      vkDestroyBuffer(device_, pass_ubos_[i], nullptr);
+      vkFreeMemory(device_, pass_ubo_memories_[i], nullptr);
+      vkDestroyBuffer(device_, object_ubos_[i], nullptr);
+      vkFreeMemory(device_, object_ubo_memories_[i], nullptr);
       vkDestroyImageView(device_, swapchain_image_views_[i], nullptr);
       vkDestroyFramebuffer(device_, framebuffers_[i], nullptr);
     }
