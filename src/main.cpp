@@ -1047,6 +1047,7 @@ class App {
 
     Frame::Pass pass{pass_uniform_block, {render_object}};
 
+    frame_.passes.clear();
     frame_.passes.push_back(pass);
   }
 
