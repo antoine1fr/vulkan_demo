@@ -102,7 +102,8 @@ static size_t get_terminal_width() {
 static size_t get_terminal_width() {
   CONSOLE_SCREEN_BUFFER_INFO csbi;
   GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi);
-  return static_cast<size_t>(csbi.srWindow.Right) - static_cast<size_t>(csbi.srWindow.Left) + 1;
+  return static_cast<size_t>(csbi.srWindow.Right) -
+         static_cast<size_t>(csbi.srWindow.Left) + 1;
 }
 #endif
 
@@ -255,7 +256,8 @@ class App {
     instance_info.pApplicationInfo = &app_info;
     instance_info.enabledLayerCount = static_cast<uint32_t>(layer_names.size());
     instance_info.ppEnabledLayerNames = layer_names.data();
-    instance_info.enabledExtensionCount = static_cast<uint32_t>(extension_names.size());
+    instance_info.enabledExtensionCount =
+        static_cast<uint32_t>(extension_names.size());
     instance_info.ppEnabledExtensionNames = extension_names.data();
 
     result = vkCreateInstance(&instance_info, nullptr, &instance_);
@@ -483,7 +485,8 @@ class App {
     VkDescriptorSetLayoutCreateInfo descriptor_layout_info{};
     descriptor_layout_info.sType =
         VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    descriptor_layout_info.bindingCount = static_cast<uint32_t>(bindings.size());
+    descriptor_layout_info.bindingCount =
+        static_cast<uint32_t>(bindings.size());
     descriptor_layout_info.pBindings = bindings.data();
 
     assert(vkCreateDescriptorSetLayout(device_, &descriptor_layout_info,
@@ -778,8 +781,7 @@ class App {
     frame_number_++;
   }
 
-  void update_uniform_block(size_t frame_id,
-                            const Frame::UniformBlock& block) {
+  void update_uniform_block(size_t frame_id, const Frame::UniformBlock& block) {
     VkDeviceMemory memory = ubo_memories_for_frames_[frame_id];
     void* data;
 
@@ -1154,7 +1156,7 @@ class App {
     }
     vkDeviceWaitIdle(device_);
   }
-  };
+};
 
 int main() {
 #if defined(DEMO_BUILD_WINDOWS)
