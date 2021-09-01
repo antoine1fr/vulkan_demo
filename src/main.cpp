@@ -1,8 +1,25 @@
-// Unix stuff
+#if defined(__APPLE__)
+#define DEMO_BUILD_APPLE
+#elif defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
+#define DEMO_BUILD_WINDOWS
+#elif defined(__linux__)
+#define DEMO_BUILD_LINUX
+#endif
+
+#if defined(DEMO_BUILD_LINUX) || defined(DEMO_BUILD_APPLE)
+#define DEMO_BUILD_UNIX
+#endif
+
+// System headers
+#if defined(DEMO_BUILD_UNIX)
 #include <sys/ioctl.h>
 #include <unistd.h>
+#elif defined(DEMO_BUILD_WINDOWS)
+#include <windows.h>
+#define SDL_MAIN_HANDLED
+#endif
 
-// Third parties
+// Third party headers
 #include <SDL.h>
 #include <SDL_vulkan.h>
 #include <vulkan/vulkan.h>
@@ -11,7 +28,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
-// STL
+// STL headers
 #include <algorithm>
 #include <array>
 #include <fstream>
@@ -21,14 +38,6 @@
 #include <sstream>
 #include <unordered_map>
 #include <vector>
-
-#if defined(__APPLE__)
-#define DEMO_BUILD_APPLE
-#elif defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
-#define DEMO_BUILD_WINDOWS
-#elif defined(__linux__)
-#define DEMO_BUILD_LINUX
-#endif
 
 #if defined(DEBUG)
 #define SUCCESS(x) assert((x) == VK_SUCCESS)
@@ -93,11 +102,19 @@ struct Vertex {
   }
 };
 
+#if defined(DEMO_BUILD_UNIX)
 static size_t get_terminal_width() {
   winsize window_size;
   ioctl(STDOUT_FILENO, TIOCGWINSZ, &window_size);
   return window_size.ws_col;
 }
+#elif defined(DEMO_BUILD_WINDOWS)
+static size_t get_terminal_width() {
+  CONSOLE_SCREEN_BUFFER_INFO csbi;
+  GetConsoleScreenBufferInfo(GetStdHandle(STD_OUTPUT_HANDLE), &csbi);
+  return static_cast<size_t>(csbi.srWindow.Right) - static_cast<size_t>(csbi.srWindow.Left) + 1;
+}
+#endif
 
 static std::vector<VkPhysicalDevice> enumerate_physical_devices(
     VkInstance instance) {
@@ -1141,6 +1158,13 @@ class App {
   };
 
 int main() {
+#if defined(DEMO_BUILD_WINDOWS)
+  DWORD size = GetCurrentDirectory(0, nullptr);
+  std::string cwd(static_cast<size_t>(size), '\0');
+  GetCurrentDirectory(size, cwd.data());
+  std::cout << "CWD: " << cwd << '\n';
+#endif
+
   assert(SDL_Init(SDL_INIT_EVERYTHING) == 0);
   App app;
   app.init_vulkan();
