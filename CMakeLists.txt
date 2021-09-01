@@ -11,7 +11,8 @@ find_package(SDL2_image REQUIRED)
 find_package(Vulkan REQUIRED)
 
 add_executable(vulkan_demo
-  "src/main.cpp")
+  "src/main.cpp"
+  "src/App.cpp")
 target_include_directories(
   vulkan_demo
   PUBLIC
@@ -26,8 +27,15 @@ target_compile_features(vulkan_demo PRIVATE cxx_std_17)
 set_target_properties(vulkan_demo PROPERTIES CXX_EXTENSIONS OFF)
 
 if (UNIX)
+  target_sources(vulkan_demo
+    PRIVATE
+    "src/system/system_unix.cpp")
   target_compile_options(vulkan_demo PRIVATE -Wall -Wextra -pedantic -Weffc++)
   string(APPEND CMAKE_CXX_FLAGS_DEBUG " -g3 -O0")
+elseif(MSVC)
+  target_sources(vulkan_demo
+    PRIVATE
+    "src/system/system_windows.cpp")
 endif()
 
 string(APPEND CMAKE_CXX_FLAGS_DEBUG " -DDEBUG")
