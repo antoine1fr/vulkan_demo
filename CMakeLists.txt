@@ -49,18 +49,20 @@ if(APPLE)
   -framework ModelIO")
 endif()
 
+set(SHADER_SOURCE_DIR "${CMAKE_CURRENT_LIST_DIR}/src/shaders")
+
 add_custom_command(
   OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/vertex.spv"
   COMMAND "${Vulkan_GLSLC_EXECUTABLE}"
-  ARGS -O0 -g -o "${CMAKE_CURRENT_BINARY_DIR}/vertex.spv" -fshader-stage=vertex "${CMAKE_CURRENT_LIST_DIR}/src/vertex.glsl"
-  DEPENDS "${CMAKE_CURRENT_LIST_DIR}/src/vertex.glsl"
+  ARGS -O0 -g -o "${CMAKE_CURRENT_BINARY_DIR}/vertex.spv" -fshader-stage=vertex "${SHADER_SOURCE_DIR}/vertex.glsl"
+  DEPENDS "${SHADER_SOURCE_DIR}/vertex.glsl"
 )
 
 add_custom_command(
   OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/fragment.spv"
   COMMAND "${Vulkan_GLSLC_EXECUTABLE}"
-  ARGS -O0 -g -o "${CMAKE_CURRENT_BINARY_DIR}/fragment.spv" -fshader-stage=fragment "${CMAKE_CURRENT_LIST_DIR}/src/fragment.glsl"
-  DEPENDS "${CMAKE_CURRENT_LIST_DIR}/src/fragment.glsl"
+  ARGS -O0 -g -o "${CMAKE_CURRENT_BINARY_DIR}/fragment.spv" -fshader-stage=fragment "${SHADER_SOURCE_DIR}/fragment.glsl"
+  DEPENDS "${SHADER_SOURCE_DIR}/fragment.glsl"
 )
 
 add_custom_target(
