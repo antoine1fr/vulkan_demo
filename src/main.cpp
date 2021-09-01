@@ -735,7 +735,7 @@ class App {
   }
 
   void end_frame(uint32_t image_index) {
-    // finish writing into comand buffer
+    // finish writing into command buffer
 
     VkResult result;
     VkCommandBuffer command_buffer = command_buffers_[current_frame_];
@@ -743,7 +743,7 @@ class App {
     vkCmdEndRenderPass(command_buffer);
     SUCCESS(vkEndCommandBuffer(command_buffer));
 
-    // submit comand buffer to comand queue
+    // submit command buffer to comand queue
 
     VkSubmitInfo submit_info{};
     VkPipelineStageFlags wait_dst_stage_masks[] = {
