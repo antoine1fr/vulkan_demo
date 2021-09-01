@@ -893,6 +893,7 @@ class App {
       }
     }
     assert(false);
+    return 0;
   }
 
   void create_vulkan_buffer(VkBufferUsageFlags usage,
