@@ -3,11 +3,12 @@ find_package(PkgConfig)
 pkg_check_modules(PC_SDL2_image QUIET SDL2_image)
 find_path(SDL2_image_INCLUDE_DIR
   NAMES SDL_image.h
-  PATHS "$ENV{SDL2_ROOT}/include/SDL2" ${PC_SDL2_image_INCLUDE_DIRS}
+  PATHS ${PC_SDL2_image_INCLUDE_DIRS}
+  PATH_SUFFIXES "/SDL2/"
 )
 find_library(SDL2_image_LIBRARY
   NAMES SDL2_image
-  PATHS "$ENV{SDL2_ROOT}" ${PC_SDL2_image_LIBRARY_DIRS}
+  PATHS ${PC_SDL2_image_LIBRARY_DIRS}
 )
 
 set(SDL2_image_VERSION ${PC_SDL2_image_VERSION})
