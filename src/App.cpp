@@ -209,12 +209,12 @@ std::vector<VkPhysicalDevice> App::enumerate_physical_devices(
   return physical_devices;
 }
 
-// The SDL doesn't seem to offer any way to retrieve the physical
-// device it used to create the presentation surface. So we need to
-// enumerate the Vulkan-compatible devices that have
-// graphics-compatible queue families and ask Vulkan whether the
-// (physical device x queue family x surface) triple is valid.
 void App::find_physical_device() {
+  // The SDL doesn't seem to offer any way to retrieve the physical
+  // device it used to create the presentation surface. So we need to
+  // enumerate the Vulkan-compatible devices that have
+  // graphics-compatible queue families and ask Vulkan whether the
+  // (physical device x queue family x surface) triple is valid.
   std::vector<VkPhysicalDevice> physical_devices =
       enumerate_physical_devices(instance_);
 
