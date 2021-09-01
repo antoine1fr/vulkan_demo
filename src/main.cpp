@@ -745,11 +745,15 @@ class App {
   }
 
   void end_frame(uint32_t image_index) {
+    // finish writing into comand buffer
+
     VkResult result;
     VkCommandBuffer command_buffer = command_buffers_[current_frame_];
 
     vkCmdEndRenderPass(command_buffer);
     assert(vkEndCommandBuffer(command_buffer) == VK_SUCCESS);
+
+    // submit comand buffer to comand queue
 
     VkSubmitInfo submit_info{};
     VkPipelineStageFlags wait_dst_stage_masks[] = {
@@ -768,6 +772,8 @@ class App {
     result = vkQueueSubmit(queue_, 1, &submit_info,
                            in_flight_fences_[current_frame_]);
     assert(result == VK_SUCCESS);
+
+    // present to render surface
 
     VkPresentInfoKHR present_info{};
     present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
