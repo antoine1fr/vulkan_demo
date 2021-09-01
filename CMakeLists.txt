@@ -16,11 +16,11 @@ target_link_libraries(vulkan_demo
   glm::glm
   SDL2::SDL2
   Vulkan::Vulkan)
-target_compile_options(vulkan_demo PRIVATE -Wall -Wextra -pedantic -Weffc++)
 target_compile_features(vulkan_demo PRIVATE cxx_std_17)
 set_target_properties(vulkan_demo PROPERTIES CXX_EXTENSIONS OFF)
 
 if (UNIX)
+  target_compile_options(vulkan_demo PRIVATE -Wall -Wextra -pedantic -Weffc++)
   string(APPEND CMAKE_CXX_FLAGS_DEBUG " -g3 -O0")
 endif()
 
