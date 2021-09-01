@@ -11,7 +11,6 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #include "App.hpp"
-#include "render/Vertex.hpp"
 #include "system.hpp"
 
 App::App() {}
