@@ -647,8 +647,8 @@ class App {
     assert(result == VK_SUCCESS);
   }
 
-  std::string load_file(const std::string& path) {
-    std::ifstream stream(path, std::ios::ate);
+  std::string load_file(const std::string& path, std::ios::openmode mode) {
+    std::ifstream stream(path, std::ios::ate | mode);
     assert(stream);
     std::size_t length = stream.tellg();
     stream.seekg(0, std::ios_base::beg);
@@ -658,7 +658,7 @@ class App {
   }
 
   VkShaderModule load_shader(const std::string& path) {
-    std::string sources = load_file(path);
+    std::string sources = load_file(path, std::ios::binary);
 
     VkShaderModuleCreateInfo info{};
     info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
