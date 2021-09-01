@@ -802,7 +802,7 @@ class App {
   void draw_frame() {
     uint32_t image_index = begin_frame();
 
-    create_frame();
+    create_frame_packet();
     for (const auto& pass : frame_.passes) {
       update_uniform_block(current_frame_, pass.uniform_block);
       for (const auto& render_object : pass.render_objects) {
