@@ -173,8 +173,8 @@ class App {
   VkDescriptorSetLayout descriptor_set_layout_;
   VkDescriptorPool descriptor_pool_;
   std::vector<VkDescriptorSet> descriptor_sets_;
-  std::unordered_map<uint32_t, VkBuffer> vulkan_buffers_;
-  std::unordered_map<uint32_t, VkDeviceMemory> vulkan_device_memories_;
+  std::unordered_map<ResourceId, VkBuffer> vulkan_buffers_;
+  std::unordered_map<ResourceId, VkDeviceMemory> vulkan_device_memories_;
   Frame frame_;
 
  private:
