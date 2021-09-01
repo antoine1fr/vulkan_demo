@@ -29,11 +29,9 @@
 #include <unordered_map>
 #include <vector>
 
-#if defined(DEBUG)
-#define SUCCESS(x) assert((x) == VK_SUCCESS)
-#else
-#define SUCCESS(x) x
-#endif
+// Project headers
+#include "base.hpp"
+#include "render/Frame.hpp"
 
 struct PassUniforms {
   glm::mat4 view_matrix;
@@ -42,27 +40,6 @@ struct PassUniforms {
 
 struct ObjectUniforms {
   glm::mat4 world_matrix;
-};
-
-typedef size_t ResourceId;
-
-struct Frame {
-  struct UniformBlock {
-    std::vector<uint8_t> data;
-    uint32_t offset;
-  };
-
-  struct Pass {
-    struct RenderObject {
-      UniformBlock uniform_block;
-      ResourceId vertex_buffer_id;
-    };
-
-    UniformBlock uniform_block;
-    std::vector<RenderObject> render_objects;
-  };
-
-  std::vector<Pass> passes;
 };
 
 struct Vertex {
@@ -166,7 +143,7 @@ class App {
   std::vector<VkDescriptorSet> descriptor_sets_;
   std::unordered_map<ResourceId, VkBuffer> vulkan_buffers_;
   std::unordered_map<ResourceId, VkDeviceMemory> vulkan_device_memories_;
-  Frame frame_;
+  render::Frame frame_;
 
  private:
   void check_extensions(
@@ -781,7 +758,8 @@ class App {
     frame_number_++;
   }
 
-  void update_uniform_block(size_t frame_id, const Frame::UniformBlock& block) {
+  void update_uniform_block(size_t frame_id,
+                            const render::Frame::UniformBlock& block) {
     VkDeviceMemory memory = ubo_memories_for_frames_[frame_id];
     void* data;
 
@@ -1029,8 +1007,8 @@ class App {
     pass_uniforms->projection_matrix = glm::perspective(
         glm::radians(45.0f),
         window_extent_.width / (float)window_extent_.height, 0.1f, 10.0f);
-    Frame::UniformBlock pass_uniform_block{pass_uniform_data,
-                                           static_cast<uint32_t>(offset)};
+    render::Frame::UniformBlock pass_uniform_block{
+        pass_uniform_data, static_cast<uint32_t>(offset)};
 
     offset += pass_uniform_data.size();
 
@@ -1040,11 +1018,11 @@ class App {
     object_uniforms->world_matrix =
         glm::rotate(glm::mat4(1.0f), 1.0f * glm::radians(90.0f),
                     glm::vec3(0.0f, 0.0f, 1.0f));
-    Frame::UniformBlock object_uniform_block{object_uniform_data,
-                                             static_cast<uint32_t>(offset)};
-    Frame::Pass::RenderObject render_object{object_uniform_block, id};
+    render::Frame::UniformBlock object_uniform_block{
+        object_uniform_data, static_cast<uint32_t>(offset)};
+    render::Frame::Pass::RenderObject render_object{object_uniform_block, id};
 
-    Frame::Pass pass{pass_uniform_block, {render_object}};
+    render::Frame::Pass pass{pass_uniform_block, {render_object}};
 
     frame_.passes.clear();
     frame_.passes.push_back(pass);
