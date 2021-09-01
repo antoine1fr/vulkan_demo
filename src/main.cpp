@@ -65,7 +65,7 @@ struct Frame {
   struct Pass {
     struct RenderObject {
       UniformBlock uniform_block;
-      uint32_t vertex_buffer_id;
+      ResourceId vertex_buffer_id;
     };
 
     UniformBlock uniform_block;
@@ -263,9 +263,9 @@ class App {
     instance_info.pNext = nullptr;
     instance_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     instance_info.pApplicationInfo = &app_info;
-    instance_info.enabledLayerCount = layer_names.size();
+    instance_info.enabledLayerCount = static_cast<uint32_t>(layer_names.size());
     instance_info.ppEnabledLayerNames = layer_names.data();
-    instance_info.enabledExtensionCount = extension_names.size();
+    instance_info.enabledExtensionCount = static_cast<uint32_t>(extension_names.size());
     instance_info.ppEnabledExtensionNames = extension_names.data();
 
     result = vkCreateInstance(&instance_info, nullptr, &instance_);
@@ -444,7 +444,7 @@ class App {
     info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
     info.queueCreateInfoCount = 1;
     info.pQueueCreateInfos = &queue_info;
-    info.enabledExtensionCount = extensions.size();
+    info.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
     info.ppEnabledExtensionNames = extensions.data();
 
     VkResult result =
@@ -471,7 +471,7 @@ class App {
     info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     info.commandPool = command_pool_;
     info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    info.commandBufferCount = kMaxFrames;
+    info.commandBufferCount = static_cast<uint32_t>(kMaxFrames);
 
     VkResult result =
         vkAllocateCommandBuffers(device_, &info, command_buffers_.data());
@@ -493,7 +493,7 @@ class App {
     VkDescriptorSetLayoutCreateInfo descriptor_layout_info{};
     descriptor_layout_info.sType =
         VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    descriptor_layout_info.bindingCount = bindings.size();
+    descriptor_layout_info.bindingCount = static_cast<uint32_t>(bindings.size());
     descriptor_layout_info.pBindings = bindings.data();
 
     assert(vkCreateDescriptorSetLayout(device_, &descriptor_layout_info,
@@ -779,9 +779,10 @@ class App {
     vkQueuePresentKHR(queue_, &present_info);
 
     current_frame_ = (current_frame_ + 1) % kMaxFrames;
+    frame_number_++;
   }
 
-  void update_uniform_block(uint32_t frame_id,
+  void update_uniform_block(size_t frame_id,
                             const Frame::UniformBlock& block) {
     VkDeviceMemory memory = ubo_memories_for_frames_[frame_id];
     void* data;
@@ -1014,9 +1015,9 @@ class App {
     }
   }
 
-  void create_frame() {
+  void create_frame_packet() {
     std::hash<std::string> hash{};
-    uint32_t id = hash("triangle_vertex_buffer");
+    size_t id = hash("triangle_vertex_buffer");
     vulkan_buffers_[id] = vertex_buffer_;
     size_t offset = 0;
 
