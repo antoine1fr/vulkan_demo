@@ -751,7 +751,7 @@ class App {
     VkCommandBuffer command_buffer = command_buffers_[current_frame_];
 
     vkCmdEndRenderPass(command_buffer);
-    assert(vkEndCommandBuffer(command_buffer) == VK_SUCCESS);
+    SUCCESS(vkEndCommandBuffer(command_buffer));
 
     // submit comand buffer to comand queue
 
