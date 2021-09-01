@@ -12,6 +12,12 @@ find_package(Vulkan REQUIRED)
 
 add_executable(vulkan_demo
   "src/main.cpp")
+target_include_directories(
+  vulkan_demo
+  PUBLIC
+  $<INSTALL_INTERFACE:include>
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+)
 target_link_libraries(vulkan_demo
   glm::glm
   SDL2::SDL2
