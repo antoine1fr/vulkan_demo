@@ -12,7 +12,8 @@ find_package(Vulkan REQUIRED)
 
 add_executable(vulkan_demo
   "src/main.cpp"
-  "src/App.cpp")
+  "src/App.cpp"
+  "src/render/RenderSystem.cpp")
 target_include_directories(
   vulkan_demo
   PUBLIC
