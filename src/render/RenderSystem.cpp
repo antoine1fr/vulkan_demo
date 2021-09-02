@@ -338,17 +338,18 @@ void RenderSystem::create_vulkan_command_buffer() {
   assert(result == VK_SUCCESS);
 }
 
-void RenderSystem::create_pipeline_layout() {
-  std::array<VkDescriptorSetLayoutBinding, 2> bindings{};
-  bindings[0].binding = 0;
-  bindings[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-  bindings[0].descriptorCount = 1;
-  bindings[0].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-
-  bindings[1].binding = 1;
-  bindings[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-  bindings[1].descriptorCount = 1;
-  bindings[1].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+void RenderSystem::create_pipeline_layout(
+    const UniformBufferDescriptor& uniform_buffer_descriptor) {
+  std::vector<VkDescriptorSetLayoutBinding> bindings(
+      uniform_buffer_descriptor.blocks.size());
+  size_t i = 0;
+  for (const auto& block : uniform_buffer_descriptor.blocks) {
+    bindings[i].binding = block.binding;
+    bindings[i].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    bindings[i].descriptorCount = 1;
+    bindings[i].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    i++;
+  }
 
   VkDescriptorSetLayoutCreateInfo descriptor_layout_info{};
   descriptor_layout_info.sType =
@@ -938,7 +939,7 @@ void RenderSystem::init(
   create_device();
   create_vulkan_swapchain();
   load_shaders();
-  create_pipeline_layout();
+  create_pipeline_layout(uniform_buffer_descriptor);
   create_vulkan_pipeline();
   create_vulkan_framebuffers();
   create_vulkan_command_pool();

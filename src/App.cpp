@@ -35,8 +35,8 @@ void App::cleanup() {
 
 void App::init() {
   std::list<render::UniformBufferDescriptor::Block> blocks{
-      {0, sizeof(PassUniforms)},
-      {sizeof(PassUniforms), sizeof(ObjectUniforms)}};
+      {0, 0, sizeof(PassUniforms)},
+      {1, sizeof(PassUniforms), sizeof(ObjectUniforms)}};
   render::UniformBufferDescriptor ubo_descriptor{
       sizeof(PassUniforms) + sizeof(ObjectUniforms), blocks};
   create_frame_packet_();

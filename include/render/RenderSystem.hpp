@@ -16,6 +16,7 @@
 namespace render {
 struct UniformBufferDescriptor {
   struct Block {
+    uint32_t binding;
     size_t offset;
     size_t range;
   };
@@ -85,7 +86,8 @@ class RenderSystem {
   void create_device();
   void create_vulkan_command_pool();
   void create_vulkan_command_buffer();
-  void create_pipeline_layout();
+  void create_pipeline_layout(
+      const UniformBufferDescriptor& uniform_buffer_descriptor);
   void create_vulkan_pipeline();
   std::string load_file(const std::string& path, std::ios::openmode mode);
   VkShaderModule load_shader(const std::string& path);
