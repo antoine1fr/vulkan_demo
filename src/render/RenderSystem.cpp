@@ -15,14 +15,6 @@
 #include "system.hpp"
 
 namespace render {
-struct PassUniforms {
-  glm::mat4 view_matrix;
-  glm::mat4 projection_matrix;
-};
-
-struct ObjectUniforms {
-  glm::mat4 world_matrix;
-};
 
 void RenderSystem::check_extensions(
     std::vector<VkExtensionProperties> available_extensions_vec,
@@ -665,11 +657,10 @@ void RenderSystem::update_uniform_block(
   vkUnmapMemory(device_, memory);
 }
 
-void RenderSystem::draw_frame() {
+void RenderSystem::draw_frame(const Frame& frame) {
   uint32_t image_index = begin_frame();
 
-  create_frame_packet();
-  for (const auto& pass : frame_.passes) {
+  for (const auto& pass : frame.passes) {
     update_uniform_block(current_frame_, pass.uniform_block);
     for (const auto& render_object : pass.render_objects) {
       VkBuffer vertex_buffer = vulkan_buffers_[render_object.vertex_buffer_id];
@@ -814,14 +805,17 @@ void RenderSystem::create_vulkan_vertex_buffer() {
   vkMapMemory(device_, vertex_buffer_memory_, 0, size, 0, &data);
   memcpy(data, vertices.data(), size);
   vkUnmapMemory(device_, vertex_buffer_memory_);
+
+  size_t id = std::hash<std::string>{}("triangle_vertex_buffer");
+  vulkan_buffers_[id] = vertex_buffer_;
 }
 
-void RenderSystem::create_uniform_buffer_objects() {
+void RenderSystem::create_uniform_buffer_objects(size_t buffer_size) {
   ubos_for_frames_.resize(swapchain_image_views_.size());
   ubo_memories_for_frames_.resize(swapchain_image_views_.size());
   for (size_t i = 0; i < swapchain_image_views_.size(); ++i) {
     create_vulkan_buffer(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                         sizeof(PassUniforms) + sizeof(ObjectUniforms),
+                         static_cast<VkDeviceSize>(buffer_size),
                          &ubos_for_frames_[i], &ubo_memories_for_frames_[i]);
   }
 }
@@ -842,7 +836,8 @@ void RenderSystem::create_descriptor_pool() {
   SUCCESS(vkCreateDescriptorPool(device_, &info, nullptr, &descriptor_pool_));
 }
 
-void RenderSystem::allocate_descriptor_sets() {
+void RenderSystem::allocate_descriptor_sets(
+    const UniformBufferDescriptor& uniform_buffer_descriptor) {
   std::vector<VkDescriptorSetLayout> layouts(swapchain_image_views_.size(),
                                              descriptor_set_layout_);
   descriptor_sets_.resize(layouts.size());
@@ -857,14 +852,23 @@ void RenderSystem::allocate_descriptor_sets() {
   SUCCESS(vkAllocateDescriptorSets(device_, &info, descriptor_sets_.data()));
 
   for (size_t i = 0; i < layouts.size(); ++i) {
-    std::array<VkDescriptorBufferInfo, 2> buffer_infos{};
-    buffer_infos[0].buffer = ubos_for_frames_[i];
+    std::vector<VkDescriptorBufferInfo> buffer_infos(
+        uniform_buffer_descriptor.blocks.size());
+    size_t j = 0;
+    for (const auto& block_descriptor : uniform_buffer_descriptor.blocks) {
+      buffer_infos[j].buffer = ubos_for_frames_[i];
+      buffer_infos[j].offset = block_descriptor.offset;
+      buffer_infos[j].range = block_descriptor.range;
+      j++;
+    }
+
+    /*buffer_infos[0].buffer = ubos_for_frames_[i];
     buffer_infos[0].offset = 0;
     buffer_infos[0].range = sizeof(PassUniforms);
 
     buffer_infos[1].buffer = ubos_for_frames_[i];
     buffer_infos[1].offset = sizeof(PassUniforms);
-    buffer_infos[1].range = sizeof(ObjectUniforms);
+    buffer_infos[1].range = sizeof(ObjectUniforms);*/
 
     std::array<VkWriteDescriptorSet, 2> write_infos{};
     write_infos[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -885,41 +889,6 @@ void RenderSystem::allocate_descriptor_sets() {
 
     vkUpdateDescriptorSets(device_, 2, write_infos.data(), 0, nullptr);
   }
-}
-
-void RenderSystem::create_frame_packet() {
-  std::hash<std::string> hash{};
-  size_t id = hash("triangle_vertex_buffer");
-  vulkan_buffers_[id] = vertex_buffer_;
-  size_t offset = 0;
-
-  std::vector<uint8_t> pass_uniform_data(sizeof(PassUniforms));
-  PassUniforms* pass_uniforms =
-      reinterpret_cast<PassUniforms*>(pass_uniform_data.data());
-  pass_uniforms->view_matrix =
-      glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f),
-                  glm::vec3(0.0f, 0.0f, 1.0f));
-  pass_uniforms->projection_matrix = glm::perspective(
-      glm::radians(45.0f), window_extent_.width / (float)window_extent_.height,
-      0.1f, 10.0f);
-  render::Frame::UniformBlock pass_uniform_block{pass_uniform_data,
-                                                 static_cast<uint32_t>(offset)};
-
-  offset += pass_uniform_data.size();
-
-  std::vector<uint8_t> object_uniform_data(sizeof(ObjectUniforms));
-  ObjectUniforms* object_uniforms =
-      reinterpret_cast<ObjectUniforms*>(object_uniform_data.data());
-  object_uniforms->world_matrix = glm::rotate(
-      glm::mat4(1.0f), 1.0f * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-  render::Frame::UniformBlock object_uniform_block{
-      object_uniform_data, static_cast<uint32_t>(offset)};
-  render::Frame::Pass::RenderObject render_object{object_uniform_block, id};
-
-  render::Frame::Pass pass{pass_uniform_block, {render_object}};
-
-  frame_.passes.clear();
-  frame_.passes.push_back(pass);
 }
 
 RenderSystem::RenderSystem()
@@ -956,10 +925,10 @@ RenderSystem::RenderSystem()
       descriptor_pool_(VK_NULL_HANDLE),
       descriptor_sets_{},
       vulkan_buffers_{},
-      vulkan_device_memories_{},
-      frame_{} {}
+      vulkan_device_memories_{} {}
 
-void RenderSystem::init() {
+void RenderSystem::init(
+    const UniformBufferDescriptor& uniform_buffer_descriptor) {
   window_ = SDL_CreateWindow("Vulkan demo", 0, 0, window_extent_.width,
                              window_extent_.height, SDL_WINDOW_VULKAN);
   assert(window_ != nullptr);
@@ -974,11 +943,11 @@ void RenderSystem::init() {
   create_vulkan_framebuffers();
   create_vulkan_command_pool();
   create_vulkan_vertex_buffer();
-  create_uniform_buffer_objects();
+  create_uniform_buffer_objects(uniform_buffer_descriptor.size);
   create_vulkan_command_buffer();
   create_sync_objects();
   create_descriptor_pool();
-  allocate_descriptor_sets();
+  allocate_descriptor_sets(uniform_buffer_descriptor);
 }
 
 void RenderSystem::cleanup() {
@@ -1012,5 +981,9 @@ void RenderSystem::cleanup() {
 
 void RenderSystem::wait_idle() {
   vkDeviceWaitIdle(device_);
+}
+
+std::tuple<uint32_t, uint32_t> RenderSystem::get_window_dimensions() const {
+  return std::make_tuple(window_extent_.width, window_extent_.height);
 }
 }  // namespace render

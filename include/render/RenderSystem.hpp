@@ -1,6 +1,7 @@
 #pragma once
 
 #include <map>
+#include <tuple>
 #include <unordered_map>
 #include <vector>
 
@@ -13,6 +14,15 @@
 #include "render/Frame.hpp"
 
 namespace render {
+struct UniformBufferDescriptor {
+  struct Block {
+    size_t offset;
+    size_t range;
+  };
+  size_t size;
+  std::list<Block> blocks;
+};
+
 // Fat, messy god object. Yeaaah.
 class RenderSystem {
  private:
@@ -54,7 +64,6 @@ class RenderSystem {
   std::vector<VkDescriptorSet> descriptor_sets_;
   std::unordered_map<ResourceId, VkBuffer> vulkan_buffers_;
   std::unordered_map<ResourceId, VkDeviceMemory> vulkan_device_memories_;
-  render::Frame frame_;
 
  private:
   std::vector<VkPhysicalDevice> enumerate_physical_devices(VkInstance instance);
@@ -95,10 +104,10 @@ class RenderSystem {
                             VkBuffer* buffer,
                             VkDeviceMemory* memory);
   void create_vulkan_vertex_buffer();
-  void create_uniform_buffer_objects();
+  void create_uniform_buffer_objects(size_t buffer_size);
   void create_descriptor_pool();
-  void allocate_descriptor_sets();
-  void create_frame_packet();
+  void allocate_descriptor_sets(
+      const UniformBufferDescriptor& uniform_buffer_descriptor);
 
  public:
   RenderSystem();
@@ -108,9 +117,10 @@ class RenderSystem {
   const RenderSystem& operator=(const RenderSystem&) = delete;
   RenderSystem& operator=(RenderSystem&&) = delete;
 
-  void init();
-  void draw_frame();
   void cleanup();
+  void draw_frame(const Frame&);
+  void init(const UniformBufferDescriptor& uniform_buffer_descriptor);
+  std::tuple<uint32_t, uint32_t> get_window_dimensions() const;
   void wait_idle();
 };
 }  // namespace render

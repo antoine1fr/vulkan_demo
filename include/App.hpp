@@ -16,6 +16,11 @@
 class App {
  private:
   render::RenderSystem render_system_;
+  render::Frame frame_;
+
+ private:
+  void create_frame_packet_();
+ 
  public:
   App();
 
