@@ -791,10 +791,13 @@ void RenderSystem::create_vulkan_vertex_buffer() {
   std::array<render::Vertex, 3> vertices{};
   vertices[0].position = glm::vec2(0.0f, -0.5f);
   vertices[0].color = glm::vec3(1.0f, 0.0f, 0.0f);
+  vertices[0].uv = glm::vec2(0.0f, 0.0f);
   vertices[1].position = glm::vec2(0.5f, 0.5f);
   vertices[1].color = glm::vec3(0.0f, 1.0f, 0.0f);
   vertices[2].position = glm::vec2(-0.5f, 0.5f);
+  vertices[1].uv = glm::vec2(1.0f, 0.0f);
   vertices[2].color = glm::vec3(0.0f, 0.0f, 1.0f);
+  vertices[2].uv = glm::vec2(0.0f, 1.0f);
   size_t size = sizeof(vertices[0]) * vertices.size();
 
   create_vulkan_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
