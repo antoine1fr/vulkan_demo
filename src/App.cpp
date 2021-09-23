@@ -63,8 +63,8 @@ void App::create_frame_packet_() {
   size_t offset = 0;
   std::tuple<uint32_t, uint32_t> window_dimensions =
       render_system_.get_window_dimensions();
-  float window_width = std::get<0>(window_dimensions);
-  float window_height = std::get<1>(window_dimensions);
+  float window_width = static_cast<float>(std::get<0>(window_dimensions));
+  float window_height = static_cast<float>(std::get<1>(window_dimensions));
 
   std::vector<uint8_t> pass_uniform_data(sizeof(PassUniforms));
   PassUniforms* pass_uniforms =
