@@ -67,48 +67,48 @@ class RenderSystem {
   std::unordered_map<ResourceId, VkDeviceMemory> vulkan_device_memories_;
 
  private:
-  std::vector<VkPhysicalDevice> enumerate_physical_devices(VkInstance instance);
-  void check_extensions(
+  std::vector<VkPhysicalDevice> EnumeratePhysicalDevices(VkInstance instance);
+  void CheckExtensions(
       std::vector<VkExtensionProperties> available_extensions_vec,
       std::vector<const char*> wanted_extensions);
-  void check_layers(std::vector<VkLayerProperties> available_layers_vec,
+  void CheckLayers(std::vector<VkLayerProperties> available_layers_vec,
                     std::vector<const char*> wanted_layers);
-  void create_vulkan_instance();
-  void create_vulkan_surface();
-  void select_best_surface_format(VkSurfaceFormatKHR& surface_format);
-  void create_vulkan_swapchain();
-  void find_physical_device();
-  void enumerate_device_extensions(
+  void CreateVulkanInstance();
+  void CreateVulkanSurface();
+  void SelectBestSurfaceFormat(VkSurfaceFormatKHR& surface_format);
+  void CreateVulkanSwapchain();
+  void FindPhysicalDevice();
+  void EnumerateDeviceExtensions(
       VkPhysicalDevice device,
       std::map<std::string, VkExtensionProperties>& extension_map);
-  void check_device_extensions(VkPhysicalDevice physical_device,
+  void CheckDeviceExtensions(VkPhysicalDevice physical_device,
                                std::vector<const char*> wanted_extensions);
-  void create_device();
-  void create_vulkan_command_pool();
-  void create_vulkan_command_buffer();
-  void create_pipeline_layout(
+  void CreateDevice();
+  void CreateVulkanCommandPool();
+  void CreateVulkanCommandBuffer();
+  void CreatePipelineLayout(
       const UniformBufferDescriptor& uniform_buffer_descriptor);
-  void create_vulkan_pipeline();
-  std::string load_file(const std::string& path, std::ios::openmode mode);
-  VkShaderModule load_shader(const std::string& path);
-  void load_shaders();
-  void create_sync_objects();
-  uint32_t begin_frame();
-  void end_frame(uint32_t image_index);
-  void update_uniform_block(size_t frame_id,
+  void CreateVulkanPipeline();
+  std::string LoadFile(const std::string& path, std::ios::openmode mode);
+  VkShaderModule LoadShader(const std::string& path);
+  void LoadShaders();
+  void CreateSyncObjects();
+  uint32_t BeginFrame();
+  void EndFrame(uint32_t image_index);
+  void UpdateUniformBlock(size_t frame_id,
                             const render::Frame::UniformBlock& block);
-  std::vector<VkImage> get_swapchain_images();
-  void create_vulkan_framebuffers();
-  uint32_t find_memory_type(uint32_t type_filter,
+  std::vector<VkImage> GetSwapchainImages();
+  void CreateVulkanFramebuffers();
+  uint32_t FindMemoryType(uint32_t type_filter,
                             VkMemoryPropertyFlags properties);
-  void create_vulkan_buffer(VkBufferUsageFlags usage,
+  void CreateVulkanBuffer(VkBufferUsageFlags usage,
                             VkDeviceSize size,
                             VkBuffer* buffer,
                             VkDeviceMemory* memory);
-  void create_vulkan_vertex_buffer();
-  void create_uniform_buffer_objects(size_t buffer_size);
-  void create_descriptor_pool();
-  void allocate_descriptor_sets(
+  void CreateVulkanVertexBuffer();
+  void CreateUniformBufferObjects(size_t buffer_size);
+  void CreateDescriptorPool();
+  void AllocateDescriptorSets(
       const UniformBufferDescriptor& uniform_buffer_descriptor);
 
  public:
@@ -119,10 +119,10 @@ class RenderSystem {
   const RenderSystem& operator=(const RenderSystem&) = delete;
   RenderSystem& operator=(RenderSystem&&) = delete;
 
-  void cleanup();
-  void draw_frame(const Frame&);
-  void init(const UniformBufferDescriptor& uniform_buffer_descriptor);
-  std::tuple<uint32_t, uint32_t> get_window_dimensions() const;
-  void wait_idle();
+  void Cleanup();
+  void DrawFrame(const Frame&);
+  void Init(const UniformBufferDescriptor& uniform_buffer_descriptor);
+  std::tuple<uint32_t, uint32_t> GetWindowDimensions() const;
+  void WaitIdle();
 };
 }  // namespace render

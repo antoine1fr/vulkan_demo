@@ -19,8 +19,8 @@ class App {
   render::Frame frame_;
 
  private:
-  void create_frame_packet_();
- 
+  void CreateFramePacket();
+
  public:
   App();
 
@@ -29,7 +29,7 @@ class App {
   const App& operator=(const App&) = delete;
   App& operator=(App&&) = delete;
 
-  void cleanup();
-  void init();
-  void run();
+  void Cleanup();
+  void Init();
+  void Run();
 };

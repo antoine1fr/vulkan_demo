@@ -29,21 +29,21 @@ static constexpr size_t kUniformBufferSize =
 
 App::App() {}
 
-void App::cleanup() {
-  render_system_.cleanup();
+void App::Cleanup() {
+  render_system_.Cleanup();
 }
 
-void App::init() {
+void App::Init() {
   std::list<render::UniformBufferDescriptor::Block> blocks{
       {0, 0, sizeof(PassUniforms)},
       {1, sizeof(PassUniforms), sizeof(ObjectUniforms)}};
   render::UniformBufferDescriptor ubo_descriptor{
       sizeof(PassUniforms) + sizeof(ObjectUniforms), blocks};
-  create_frame_packet_();
-  render_system_.init(ubo_descriptor);
+  CreateFramePacket();
+  render_system_.Init(ubo_descriptor);
 }
 
-void App::run() {
+void App::Run() {
   bool run = true;
 
   while (run) {
@@ -51,18 +51,18 @@ void App::run() {
     SDL_PollEvent(&event);
     if (event.type == SDL_QUIT)
       run = false;
-    render_system_.draw_frame(frame_);
+    render_system_.DrawFrame(frame_);
     SDL_Delay(16);
   }
-  render_system_.wait_idle();
+  render_system_.WaitIdle();
 }
 
-void App::create_frame_packet_() {
+void App::CreateFramePacket() {
   std::hash<std::string> hash{};
   size_t id = hash("triangle_vertex_buffer");
   size_t offset = 0;
   std::tuple<uint32_t, uint32_t> window_dimensions =
-      render_system_.get_window_dimensions();
+      render_system_.GetWindowDimensions();
   float window_width = static_cast<float>(std::get<0>(window_dimensions));
   float window_height = static_cast<float>(std::get<1>(window_dimensions));
 

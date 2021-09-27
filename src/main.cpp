@@ -23,9 +23,9 @@ int main() {
 
   assert(SDL_Init(SDL_INIT_EVERYTHING) == 0);
   App app;
-  app.init();
-  app.run();
-  app.cleanup();
+  app.Init();
+  app.Run();
+  app.Cleanup();
   SDL_Quit();
   return 0;
 }
