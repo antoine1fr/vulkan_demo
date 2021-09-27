@@ -27,13 +27,8 @@ static constexpr size_t kUniformBufferSize =
     sizeof(PassUniforms) + sizeof(ObjectUniforms);
 }  // namespace
 
-App::App() {}
-
-void App::Cleanup() {
-  render_system_.Cleanup();
-}
-
-void App::Init() {
+App::App() {
+  assert(SDL_Init(SDL_INIT_EVERYTHING) == 0);
   std::list<render::UniformBufferDescriptor::Block> blocks{
       {0, 0, sizeof(PassUniforms)},
       {1, sizeof(PassUniforms), sizeof(ObjectUniforms)}};
@@ -41,6 +36,11 @@ void App::Init() {
       sizeof(PassUniforms) + sizeof(ObjectUniforms), blocks};
   CreateFramePacket();
   render_system_.Init(ubo_descriptor);
+}
+
+App::~App() {
+  render_system_.Cleanup();
+  SDL_Quit();
 }
 
 void App::Run() {

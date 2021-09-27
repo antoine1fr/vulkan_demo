@@ -23,13 +23,12 @@ class App {
 
  public:
   App();
+  ~App();
 
   App(const App&) = delete;
   App(App&&) = delete;
   const App& operator=(const App&) = delete;
   App& operator=(App&&) = delete;
 
-  void Cleanup();
-  void Init();
   void Run();
 };

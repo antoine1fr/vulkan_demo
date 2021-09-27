@@ -21,11 +21,7 @@ int main() {
   std::cout << "CWD: " << cwd << '\n';
 #endif
 
-  assert(SDL_Init(SDL_INIT_EVERYTHING) == 0);
   App app;
-  app.Init();
   app.Run();
-  app.Cleanup();
-  SDL_Quit();
   return 0;
 }
