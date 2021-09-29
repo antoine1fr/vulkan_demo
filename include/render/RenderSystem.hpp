@@ -12,6 +12,7 @@
 
 #include "base.hpp"
 #include "render/Frame.hpp"
+#include "render/vulkan/Buffer.hpp"
 
 namespace render {
 struct UniformBufferDescriptor {
@@ -54,17 +55,13 @@ class RenderSystem {
   std::vector<VkFence> in_flight_images_;
   size_t current_frame_;
   size_t frame_number_;
-  VkBuffer vertex_buffer_;
-  VkDeviceMemory vertex_buffer_memory_;
-  std::vector<VkBuffer>
+  vulkan::Buffer* vertex_buffer_;
+  std::vector<vulkan::Buffer*>
       ubos_for_frames_;  ///< uniform buffer objects referenced by frame id
-  std::vector<VkDeviceMemory>
-      ubo_memories_for_frames_;  ///< ubo memories referenced by frame id
   VkDescriptorSetLayout descriptor_set_layout_;
   VkDescriptorPool descriptor_pool_;
   std::vector<VkDescriptorSet> descriptor_sets_;
-  std::unordered_map<ResourceId, VkBuffer> vulkan_buffers_;
-  std::unordered_map<ResourceId, VkDeviceMemory> vulkan_device_memories_;
+  std::unordered_map<ResourceId, vulkan::Buffer*> vulkan_buffers_;
 
  private:
   std::vector<VkPhysicalDevice> EnumeratePhysicalDevices(VkInstance instance);
@@ -99,10 +96,6 @@ class RenderSystem {
                           const render::Frame::UniformBlock& block);
   std::vector<VkImage> GetSwapchainImages();
   void CreateVulkanFramebuffers();
-  void CreateVulkanBuffer(VkBufferUsageFlags usage,
-                          VkDeviceSize size,
-                          VkBuffer* buffer,
-                          VkDeviceMemory* memory);
   void CreateVulkanVertexBuffer();
   void CreateUniformBufferObjects(size_t buffer_size);
   void CreateDescriptorPool();

@@ -621,7 +621,7 @@ void RenderSystem::EndFrame(uint32_t image_index) {
 void RenderSystem::UpdateUniformBlock(
     size_t frame_id,
     const render::Frame::UniformBlock& block) {
-  VkDeviceMemory memory = ubo_memories_for_frames_[frame_id];
+  VkDeviceMemory memory = ubos_for_frames_[frame_id]->memory_;
   void* data;
 
   vkMapMemory(device_, memory, static_cast<VkDeviceSize>(block.offset),
@@ -636,7 +636,8 @@ void RenderSystem::DrawFrame(const Frame& frame) {
   for (const auto& pass : frame.passes) {
     UpdateUniformBlock(current_frame_, pass.uniform_block);
     for (const auto& render_object : pass.render_objects) {
-      VkBuffer vertex_buffer = vulkan_buffers_[render_object.vertex_buffer_id];
+      VkBuffer vertex_buffer =
+          vulkan_buffers_[render_object.vertex_buffer_id]->buffer_;
       VkBuffer vertex_buffers[] = {vertex_buffer};
       VkDeviceSize offsets[] = {0};
       UpdateUniformBlock(current_frame_, render_object.uniform_block);
@@ -704,30 +705,6 @@ void RenderSystem::CreateVulkanFramebuffers() {
   }
 }
 
-void RenderSystem::CreateVulkanBuffer(VkBufferUsageFlags usage,
-                                      VkDeviceSize size,
-                                      VkBuffer* buffer,
-                                      VkDeviceMemory* memory) {
-  // Create vertex buffer:
-
-  VkBufferCreateInfo info{};
-  info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-  info.size = size;
-  info.usage = usage;
-  info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-
-  VK_CHECK(vkCreateBuffer(device_, &info, nullptr, buffer));
-
-  // Allocate memory for buffer:
-
-  VkMemoryRequirements memory_requirements;
-  vkGetBufferMemoryRequirements(device_, *buffer, &memory_requirements);
-  vulkan::AllocateVulkanMemory(memory_requirements, physical_device_, device_,
-                               memory);
-
-  // Bind memory to buffer:
-  vkBindBufferMemory(device_, *buffer, *memory, 0);
-}
 
 void RenderSystem::CreateVulkanVertexBuffer() {
   std::array<render::Vertex, 3> vertices{};
@@ -742,15 +719,14 @@ void RenderSystem::CreateVulkanVertexBuffer() {
   vertices[2].uv = glm::vec2(0.0f, 1.0f);
   size_t size = sizeof(vertices[0]) * vertices.size();
 
-  CreateVulkanBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-                     static_cast<VkDeviceSize>(size), &vertex_buffer_,
-                     &vertex_buffer_memory_);
+  vertex_buffer_ = new vulkan::Buffer(physical_device_, device_,
+                                      VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+                                      static_cast<VkDeviceSize>(size));
 
   // Fill up buffer memory with data:
-  void* data;
-  vkMapMemory(device_, vertex_buffer_memory_, 0, size, 0, &data);
+  void* data = vertex_buffer_->Map<void>();
   memcpy(data, vertices.data(), size);
-  vkUnmapMemory(device_, vertex_buffer_memory_);
+  vertex_buffer_->Unmap();
 
   size_t id = std::hash<std::string>{}("triangle_vertex_buffer");
   vulkan_buffers_[id] = vertex_buffer_;
@@ -758,11 +734,10 @@ void RenderSystem::CreateVulkanVertexBuffer() {
 
 void RenderSystem::CreateUniformBufferObjects(size_t buffer_size) {
   ubos_for_frames_.resize(swapchain_image_views_.size());
-  ubo_memories_for_frames_.resize(swapchain_image_views_.size());
   for (size_t i = 0; i < swapchain_image_views_.size(); ++i) {
-    CreateVulkanBuffer(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                       static_cast<VkDeviceSize>(buffer_size),
-                       &ubos_for_frames_[i], &ubo_memories_for_frames_[i]);
+    ubos_for_frames_[i] = new vulkan::Buffer(
+        physical_device_, device_, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+        static_cast<VkDeviceSize>(buffer_size));
   }
 }
 
@@ -802,7 +777,7 @@ void RenderSystem::AllocateDescriptorSets(
         uniform_buffer_descriptor.blocks.size());
     size_t j = 0;
     for (const auto& block_descriptor : uniform_buffer_descriptor.blocks) {
-      buffer_infos[j].buffer = ubos_for_frames_[i];
+      buffer_infos[j].buffer = ubos_for_frames_[i]->buffer_;
       buffer_infos[j].offset = block_descriptor.offset;
       buffer_infos[j].range = block_descriptor.range;
       j++;
@@ -864,14 +839,11 @@ RenderSystem::RenderSystem()
       current_frame_(0),
       frame_number_(0),
       vertex_buffer_(VK_NULL_HANDLE),
-      vertex_buffer_memory_(VK_NULL_HANDLE),
       ubos_for_frames_{},
-      ubo_memories_for_frames_{},
       descriptor_set_layout_(VK_NULL_HANDLE),
       descriptor_pool_(VK_NULL_HANDLE),
       descriptor_sets_{},
-      vulkan_buffers_{},
-      vulkan_device_memories_{} {}
+      vulkan_buffers_{} {}
 
 void RenderSystem::Init(
     const UniformBufferDescriptor& uniform_buffer_descriptor) {
@@ -907,14 +879,12 @@ void RenderSystem::Cleanup() {
   vkDestroyPipeline(device_, pipeline_, nullptr);
   vkDestroyShaderModule(device_, vertex_shader_module_, nullptr);
   vkDestroyShaderModule(device_, fragment_shader_module_, nullptr);
-  vkDestroyBuffer(device_, vertex_buffer_, nullptr);
-  vkFreeMemory(device_, vertex_buffer_memory_, nullptr);
+  delete vertex_buffer_;
   vkDestroyCommandPool(device_, command_pool_, nullptr);
   vkDestroyDescriptorPool(device_, descriptor_pool_, nullptr);
   vkDestroyDescriptorSetLayout(device_, descriptor_set_layout_, nullptr);
   for (size_t i = 0; i < swapchain_image_views_.size(); ++i) {
-    vkDestroyBuffer(device_, ubos_for_frames_[i], nullptr);
-    vkFreeMemory(device_, ubo_memories_for_frames_[i], nullptr);
+    delete ubos_for_frames_[i];
     vkDestroyImageView(device_, swapchain_image_views_[i], nullptr);
     vkDestroyFramebuffer(device_, framebuffers_[i], nullptr);
   }

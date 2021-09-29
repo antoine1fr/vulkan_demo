@@ -14,6 +14,7 @@ add_executable(vulkan_demo
   "src/main.cpp"
   "src/App.cpp"
   "src/render/RenderSystem.cpp"
+  "src/render/vulkan/Buffer.cpp"
   "src/render/vulkan/Memory.cpp")
 target_include_directories(
   vulkan_demo
