@@ -9,6 +9,7 @@ namespace vulkan {
 Buffer::Buffer(VkPhysicalDevice physical_device,
                VkDevice device,
                VkBufferUsageFlags usage,
+               VkMemoryPropertyFlags properties,
                VkDeviceSize size)
     : size_(size), device_(device) {
   // Create vertex buffer:
@@ -26,7 +27,8 @@ Buffer::Buffer(VkPhysicalDevice physical_device,
   VkMemoryRequirements memory_requirements;
   vkGetBufferMemoryRequirements(device, buffer_, &memory_requirements);
 
-  AllocateVulkanMemory(memory_requirements, physical_device, device, &memory_);
+  AllocateVulkanMemory(memory_requirements, physical_device, device, &memory_,
+                       properties);
 
   // Bind memory to buffer:
   VK_CHECK(vkBindBufferMemory(device, buffer_, memory_, 0));

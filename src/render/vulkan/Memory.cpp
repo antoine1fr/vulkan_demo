@@ -27,14 +27,13 @@ uint32_t FindMemoryType(VkPhysicalDevice physical_device,
 void AllocateVulkanMemory(const VkMemoryRequirements& memory_requirements,
                           const VkPhysicalDevice& physical_device,
                           const VkDevice& device,
-                          VkDeviceMemory* memory) {
+                          VkDeviceMemory* memory,
+                          VkMemoryPropertyFlags properties) {
   VkMemoryAllocateInfo alloc_info{};
   alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
   alloc_info.allocationSize = memory_requirements.size;
-  alloc_info.memoryTypeIndex =
-      FindMemoryType(physical_device, memory_requirements.memoryTypeBits,
-                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                         VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+  alloc_info.memoryTypeIndex = FindMemoryType(
+      physical_device, memory_requirements.memoryTypeBits, properties);
   VK_CHECK(vkAllocateMemory(device, &alloc_info, nullptr, memory));
 }
 }  // namespace vulkan

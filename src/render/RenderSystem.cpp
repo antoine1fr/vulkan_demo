@@ -720,6 +720,8 @@ void RenderSystem::CreateVulkanVertexBuffer() {
 
   auto vertex_buffer = std::make_unique<vulkan::Buffer>(
       physical_device_, device_, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+          VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
       static_cast<VkDeviceSize>(size));
 
   // Fill up buffer memory with data:
@@ -736,6 +738,8 @@ void RenderSystem::CreateUniformBufferObjects(size_t buffer_size) {
   for (size_t i = 0; i < swapchain_image_views_.size(); ++i) {
     ubos_for_frames_[i] = new vulkan::Buffer(
         physical_device_, device_, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+            VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
         static_cast<VkDeviceSize>(buffer_size));
   }
 }

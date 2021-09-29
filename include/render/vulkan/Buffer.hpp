@@ -19,6 +19,7 @@ class Buffer {
   Buffer(VkPhysicalDevice physical_device,
          VkDevice device,
          VkBufferUsageFlags usage,
+         VkMemoryPropertyFlags properties,
          VkDeviceSize size);
   ~Buffer();
 
