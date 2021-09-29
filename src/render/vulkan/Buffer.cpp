@@ -26,7 +26,6 @@ Buffer::Buffer(VkPhysicalDevice physical_device,
 
   VkMemoryRequirements memory_requirements;
   vkGetBufferMemoryRequirements(device, buffer_, &memory_requirements);
-
   AllocateVulkanMemory(memory_requirements, physical_device, device, &memory_,
                        properties);
 
