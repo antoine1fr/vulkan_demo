@@ -72,7 +72,7 @@ class RenderSystem {
       std::vector<VkExtensionProperties> available_extensions_vec,
       std::vector<const char*> wanted_extensions);
   void CheckLayers(std::vector<VkLayerProperties> available_layers_vec,
-                    std::vector<const char*> wanted_layers);
+                   std::vector<const char*> wanted_layers);
   void CreateVulkanInstance();
   void CreateVulkanSurface();
   void SelectBestSurfaceFormat(VkSurfaceFormatKHR& surface_format);
@@ -82,7 +82,7 @@ class RenderSystem {
       VkPhysicalDevice device,
       std::map<std::string, VkExtensionProperties>& extension_map);
   void CheckDeviceExtensions(VkPhysicalDevice physical_device,
-                               std::vector<const char*> wanted_extensions);
+                             std::vector<const char*> wanted_extensions);
   void CreateDevice();
   void CreateVulkanCommandPool();
   void CreateVulkanCommandBuffer();
@@ -96,13 +96,13 @@ class RenderSystem {
   uint32_t BeginFrame();
   void EndFrame(uint32_t image_index);
   void UpdateUniformBlock(size_t frame_id,
-                            const render::Frame::UniformBlock& block);
+                          const render::Frame::UniformBlock& block);
   std::vector<VkImage> GetSwapchainImages();
   void CreateVulkanFramebuffers();
   void CreateVulkanBuffer(VkBufferUsageFlags usage,
-                            VkDeviceSize size,
-                            VkBuffer* buffer,
-                            VkDeviceMemory* memory);
+                          VkDeviceSize size,
+                          VkBuffer* buffer,
+                          VkDeviceMemory* memory);
   void CreateVulkanVertexBuffer();
   void CreateUniformBufferObjects(size_t buffer_size);
   void CreateDescriptorPool();

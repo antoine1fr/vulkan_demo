@@ -483,7 +483,7 @@ void RenderSystem::CreateVulkanPipeline() {
 }
 
 std::string RenderSystem::LoadFile(const std::string& path,
-                                    std::ios::openmode mode) {
+                                   std::ios::openmode mode) {
   std::ifstream stream(path, std::ios::ate | mode);
   assert(stream);
   std::size_t length = stream.tellg();
@@ -704,11 +704,10 @@ void RenderSystem::CreateVulkanFramebuffers() {
   }
 }
 
-
 void RenderSystem::CreateVulkanBuffer(VkBufferUsageFlags usage,
-                                        VkDeviceSize size,
-                                        VkBuffer* buffer,
-                                        VkDeviceMemory* memory) {
+                                      VkDeviceSize size,
+                                      VkBuffer* buffer,
+                                      VkDeviceMemory* memory) {
   // Create vertex buffer:
 
   VkBufferCreateInfo info{};
@@ -744,8 +743,8 @@ void RenderSystem::CreateVulkanVertexBuffer() {
   size_t size = sizeof(vertices[0]) * vertices.size();
 
   CreateVulkanBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-                       static_cast<VkDeviceSize>(size), &vertex_buffer_,
-                       &vertex_buffer_memory_);
+                     static_cast<VkDeviceSize>(size), &vertex_buffer_,
+                     &vertex_buffer_memory_);
 
   // Fill up buffer memory with data:
   void* data;
@@ -762,8 +761,8 @@ void RenderSystem::CreateUniformBufferObjects(size_t buffer_size) {
   ubo_memories_for_frames_.resize(swapchain_image_views_.size());
   for (size_t i = 0; i < swapchain_image_views_.size(); ++i) {
     CreateVulkanBuffer(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-                         static_cast<VkDeviceSize>(buffer_size),
-                         &ubos_for_frames_[i], &ubo_memories_for_frames_[i]);
+                       static_cast<VkDeviceSize>(buffer_size),
+                       &ubos_for_frames_[i], &ubo_memories_for_frames_[i]);
   }
 }
 
