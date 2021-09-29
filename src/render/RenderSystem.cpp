@@ -609,7 +609,7 @@ void RenderSystem::EndFrame(uint32_t image_index) {
   VkCommandBuffer command_buffer = command_buffers_[current_frame_];
 
   vkCmdEndRenderPass(command_buffer);
-  SUCCESS(vkEndCommandBuffer(command_buffer));
+  VK_CHECK(vkEndCommandBuffer(command_buffer));
 
   // submit command buffer to comand queue
 
@@ -836,7 +836,7 @@ void RenderSystem::CreateDescriptorPool() {
   info.poolSizeCount = 1;
   info.pPoolSizes = &pool_size;
 
-  SUCCESS(vkCreateDescriptorPool(device_, &info, nullptr, &descriptor_pool_));
+  VK_CHECK(vkCreateDescriptorPool(device_, &info, nullptr, &descriptor_pool_));
 }
 
 void RenderSystem::AllocateDescriptorSets(
@@ -852,7 +852,7 @@ void RenderSystem::AllocateDescriptorSets(
       static_cast<uint32_t>(swapchain_image_views_.size());
   info.pSetLayouts = layouts.data();
 
-  SUCCESS(vkAllocateDescriptorSets(device_, &info, descriptor_sets_.data()));
+  VK_CHECK(vkAllocateDescriptorSets(device_, &info, descriptor_sets_.data()));
 
   for (size_t i = 0; i < layouts.size(); ++i) {
     std::vector<VkDescriptorBufferInfo> buffer_infos(

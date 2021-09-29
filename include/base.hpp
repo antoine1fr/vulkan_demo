@@ -3,9 +3,9 @@
 #include "config.hpp"
 
 #if defined(DEBUG)
-#define SUCCESS(x) assert((x) == VK_SUCCESS)
+#define VK_CHECK(x) assert((x) == VK_SUCCESS)
 #else
-#define SUCCESS(x) x
+#define VK_CHECK(x) x
 #endif
 
 typedef size_t ResourceId;
