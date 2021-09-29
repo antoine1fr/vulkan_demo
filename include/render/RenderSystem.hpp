@@ -99,8 +99,6 @@ class RenderSystem {
                             const render::Frame::UniformBlock& block);
   std::vector<VkImage> GetSwapchainImages();
   void CreateVulkanFramebuffers();
-  uint32_t FindMemoryType(uint32_t type_filter,
-                            VkMemoryPropertyFlags properties);
   void CreateVulkanBuffer(VkBufferUsageFlags usage,
                             VkDeviceSize size,
                             VkBuffer* buffer,

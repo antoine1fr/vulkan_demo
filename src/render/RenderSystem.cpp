@@ -704,21 +704,6 @@ void RenderSystem::CreateVulkanFramebuffers() {
   }
 }
 
-uint32_t RenderSystem::FindMemoryType(uint32_t type_filter,
-                                        VkMemoryPropertyFlags properties) {
-  VkPhysicalDeviceMemoryProperties memory_properties;
-  vkGetPhysicalDeviceMemoryProperties(physical_device_, &memory_properties);
-
-  for (uint32_t i = 0; i < memory_properties.memoryTypeCount; ++i) {
-    if (type_filter & (1 << i) &&
-        (memory_properties.memoryTypes[i].propertyFlags & properties) ==
-            properties) {
-      return i;
-    }
-  }
-  assert(false);
-  return 0;
-}
 
 void RenderSystem::CreateVulkanBuffer(VkBufferUsageFlags usage,
                                         VkDeviceSize size,
@@ -738,15 +723,8 @@ void RenderSystem::CreateVulkanBuffer(VkBufferUsageFlags usage,
 
   VkMemoryRequirements memory_requirements;
   vkGetBufferMemoryRequirements(device_, *buffer, &memory_requirements);
-
-  VkMemoryAllocateInfo alloc_info{};
-  alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
-  alloc_info.allocationSize = memory_requirements.size;
-  alloc_info.memoryTypeIndex =
-      FindMemoryType(memory_requirements.memoryTypeBits,
-                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                           VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-  VK_CHECK(vkAllocateMemory(device_, &alloc_info, nullptr, memory));
+  vulkan::AllocateVulkanMemory(memory_requirements, physical_device_, device_,
+                               memory);
 
   // Bind memory to buffer:
   vkBindBufferMemory(device_, *buffer, *memory, 0);
