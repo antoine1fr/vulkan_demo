@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cassert>
+
 #include "config.hpp"
 
 #if defined(DEBUG)
