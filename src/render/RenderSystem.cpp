@@ -81,12 +81,10 @@ void RenderSystem::CreateVulkanInstance() {
 #endif
 
   uint32_t layer_count;
-  VkResult result = vkEnumerateInstanceLayerProperties(&layer_count, nullptr);
-  assert(result == VK_SUCCESS);
+  VK_CHECK(vkEnumerateInstanceLayerProperties(&layer_count, nullptr));
   std::vector<VkLayerProperties> layer_properties(layer_count);
-  result =
-      vkEnumerateInstanceLayerProperties(&layer_count, layer_properties.data());
-  assert(result == VK_SUCCESS);
+  VK_CHECK(vkEnumerateInstanceLayerProperties(&layer_count,
+                                              layer_properties.data()));
   std::vector<const char*> layer_names{"VK_LAYER_KHRONOS_validation"};
   CheckLayers(layer_properties, layer_names);
 
@@ -108,8 +106,7 @@ void RenderSystem::CreateVulkanInstance() {
       static_cast<uint32_t>(extension_names.size());
   instance_info.ppEnabledExtensionNames = extension_names.data();
 
-  result = vkCreateInstance(&instance_info, nullptr, &instance_);
-  assert(result == VK_SUCCESS);
+  VK_CHECK(vkCreateInstance(&instance_info, nullptr, &instance_));
 }
 
 void RenderSystem::CreateVulkanSurface() {
@@ -119,14 +116,12 @@ void RenderSystem::CreateVulkanSurface() {
 
 void RenderSystem::SelectBestSurfaceFormat(VkSurfaceFormatKHR& surface_format) {
   uint32_t format_count;
-  VkResult result = vkGetPhysicalDeviceSurfaceFormatsKHR(
-      physical_device_, surface_, &format_count, nullptr);
-  assert(result == VK_SUCCESS);
+  VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device_, surface_,
+                                                &format_count, nullptr));
 
   std::vector<VkSurfaceFormatKHR> formats(format_count);
-  result = vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device_, surface_,
-                                                &format_count, formats.data());
-  assert(result == VK_SUCCESS);
+  VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device_, surface_,
+                                                &format_count, formats.data()));
 
   size_t best_index = 0;
   bool found = false;
@@ -152,15 +147,13 @@ void RenderSystem::SelectBestSurfaceFormat(VkSurfaceFormatKHR& surface_format) {
 }
 
 void RenderSystem::CreateVulkanSwapchain() {
-  VkResult result;
   VkSurfaceFormatKHR surface_format;
   SelectBestSurfaceFormat(surface_format);
   swapchain_image_format_ = surface_format.format;
 
   VkSurfaceCapabilitiesKHR capabilities{};
-  result = vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device_, surface_,
-                                                     &capabilities);
-  assert(result == VK_SUCCESS);
+  VK_CHECK(vkGetPhysicalDeviceSurfaceCapabilitiesKHR(physical_device_, surface_,
+                                                     &capabilities));
 
   VkSwapchainCreateInfoKHR swapchain_create_info{};
   swapchain_create_info.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
@@ -179,27 +172,23 @@ void RenderSystem::CreateVulkanSwapchain() {
   swapchain_create_info.clipped = VK_TRUE;
   swapchain_create_info.oldSwapchain = VK_NULL_HANDLE;
 
-  result = vkCreateSwapchainKHR(device_, &swapchain_create_info, nullptr,
-                                &swapchain_);
-  assert(result == VK_SUCCESS);
+  VK_CHECK(vkCreateSwapchainKHR(device_, &swapchain_create_info, nullptr,
+                                &swapchain_));
 }
 
 std::vector<VkPhysicalDevice> RenderSystem::EnumeratePhysicalDevices(
     VkInstance instance) {
-  VkResult result;
   uint32_t device_count;
 
-  result = vkEnumeratePhysicalDevices(instance, &device_count, nullptr);
-  assert(result == VK_SUCCESS);
+  VK_CHECK(vkEnumeratePhysicalDevices(instance, &device_count, nullptr));
   if (device_count == 0) {
     std::cerr << "No Vulkan-compatible physical device found.\n";
     assert(false);
   }
 
   std::vector<VkPhysicalDevice> physical_devices(device_count);
-  result = vkEnumeratePhysicalDevices(instance, &device_count,
-                                      physical_devices.data());
-  assert(result == VK_SUCCESS);
+  VK_CHECK(vkEnumeratePhysicalDevices(instance, &device_count,
+                                      physical_devices.data()));
   return physical_devices;
 }
 
@@ -244,16 +233,13 @@ void RenderSystem::FindPhysicalDevice() {
 void RenderSystem::EnumerateDeviceExtensions(
     VkPhysicalDevice device,
     std::map<std::string, VkExtensionProperties>& extension_map) {
-  VkResult result;
   uint32_t extension_count;
-  result = vkEnumerateDeviceExtensionProperties(device, nullptr,
-                                                &extension_count, nullptr);
-  assert(result == VK_SUCCESS);
+  VK_CHECK(vkEnumerateDeviceExtensionProperties(device, nullptr,
+                                                &extension_count, nullptr));
 
   std::vector<VkExtensionProperties> extensions(extension_count);
-  result = vkEnumerateDeviceExtensionProperties(
-      device, nullptr, &extension_count, extensions.data());
-  assert(result == VK_SUCCESS);
+  VK_CHECK(vkEnumerateDeviceExtensionProperties(
+      device, nullptr, &extension_count, extensions.data()));
 
   for (const auto& extension : extensions) {
     extension_map[extension.extensionName] = extension;
@@ -307,8 +293,7 @@ void RenderSystem::CreateDevice() {
   info.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
   info.ppEnabledExtensionNames = extensions.data();
 
-  VkResult result = vkCreateDevice(physical_device_, &info, nullptr, &device_);
-  assert(result == VK_SUCCESS);
+  VK_CHECK(vkCreateDevice(physical_device_, &info, nullptr, &device_));
 
   vkGetDeviceQueue(device_, queue_family_index_, 0, &queue_);
 }
@@ -320,9 +305,7 @@ void RenderSystem::CreateVulkanCommandPool() {
                       VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
   create_info.queueFamilyIndex = queue_family_index_;
 
-  VkResult result =
-      vkCreateCommandPool(device_, &create_info, nullptr, &command_pool_);
-  assert(result == VK_SUCCESS);
+  VK_CHECK(vkCreateCommandPool(device_, &create_info, nullptr, &command_pool_));
 }
 
 void RenderSystem::CreateVulkanCommandBuffer() {
@@ -332,9 +315,7 @@ void RenderSystem::CreateVulkanCommandBuffer() {
   info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
   info.commandBufferCount = static_cast<uint32_t>(kMaxFrames);
 
-  VkResult result =
-      vkAllocateCommandBuffers(device_, &info, command_buffers_.data());
-  assert(result == VK_SUCCESS);
+  VK_CHECK(vkAllocateCommandBuffers(device_, &info, command_buffers_.data()));
 }
 
 void RenderSystem::CreatePipelineLayout(
@@ -368,8 +349,6 @@ void RenderSystem::CreatePipelineLayout(
 }
 
 void RenderSystem::CreateVulkanPipeline() {
-  VkResult result;
-
   VkPipelineShaderStageCreateInfo vertex_shader_stage_info{};
   vertex_shader_stage_info.sType =
       VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -481,9 +460,8 @@ void RenderSystem::CreateVulkanPipeline() {
   render_pass_info.dependencyCount = 1;
   render_pass_info.pDependencies = &subpass_dependency;
 
-  result =
-      vkCreateRenderPass(device_, &render_pass_info, nullptr, &render_pass_);
-  assert(result == VK_SUCCESS);
+  VK_CHECK(
+      vkCreateRenderPass(device_, &render_pass_info, nullptr, &render_pass_));
 
   VkPipelineShaderStageCreateInfo shader_stages[] = {
       vertex_shader_stage_info, fragment_shader_stage_info};
@@ -500,9 +478,8 @@ void RenderSystem::CreateVulkanPipeline() {
   info.layout = pipeline_layout_;
   info.renderPass = render_pass_;
 
-  result = vkCreateGraphicsPipelines(device_, VK_NULL_HANDLE, 1, &info, nullptr,
-                                     &pipeline_);
-  assert(result == VK_SUCCESS);
+  VK_CHECK(vkCreateGraphicsPipelines(device_, VK_NULL_HANDLE, 1, &info, nullptr,
+                                     &pipeline_));
 }
 
 std::string RenderSystem::LoadFile(const std::string& path,
@@ -525,9 +502,7 @@ VkShaderModule RenderSystem::LoadShader(const std::string& path) {
   info.pCode = reinterpret_cast<uint32_t*>(sources.data());
 
   VkShaderModule shader_module;
-  VkResult result =
-      vkCreateShaderModule(device_, &info, nullptr, &shader_module);
-  assert(result == VK_SUCCESS);
+  VK_CHECK(vkCreateShaderModule(device_, &info, nullptr, &shader_module));
   return shader_module;
 }
 
@@ -605,7 +580,6 @@ uint32_t RenderSystem::BeginFrame() {
 void RenderSystem::EndFrame(uint32_t image_index) {
   // finish writing into command buffer
 
-  VkResult result;
   VkCommandBuffer command_buffer = command_buffers_[current_frame_];
 
   vkCmdEndRenderPass(command_buffer);
@@ -626,9 +600,8 @@ void RenderSystem::EndFrame(uint32_t image_index) {
   submit_info.pSignalSemaphores = &render_finished_semaphores_[current_frame_];
 
   vkResetFences(device_, 1, &in_flight_fences_[current_frame_]);
-  result =
-      vkQueueSubmit(queue_, 1, &submit_info, in_flight_fences_[current_frame_]);
-  assert(result == VK_SUCCESS);
+  VK_CHECK(vkQueueSubmit(queue_, 1, &submit_info,
+                         in_flight_fences_[current_frame_]));
 
   // present to render surface
 
@@ -682,14 +655,11 @@ void RenderSystem::DrawFrame(const Frame& frame) {
 
 std::vector<VkImage> RenderSystem::GetSwapchainImages() {
   uint32_t image_count;
-  VkResult result =
-      vkGetSwapchainImagesKHR(device_, swapchain_, &image_count, nullptr);
-  assert(result == VK_SUCCESS);
+  VK_CHECK(vkGetSwapchainImagesKHR(device_, swapchain_, &image_count, nullptr));
 
   std::vector<VkImage> images(image_count);
-  result =
-      vkGetSwapchainImagesKHR(device_, swapchain_, &image_count, images.data());
-  assert(result == VK_SUCCESS);
+  VK_CHECK(vkGetSwapchainImagesKHR(device_, swapchain_, &image_count,
+                                   images.data()));
   return images;
 }
 
@@ -716,9 +686,8 @@ void RenderSystem::CreateVulkanFramebuffers() {
     image_view_info.subresourceRange.levelCount = 1;
     image_view_info.subresourceRange.baseArrayLayer = 0;
     image_view_info.subresourceRange.layerCount = 1;
-    VkResult result = vkCreateImageView(device_, &image_view_info, nullptr,
-                                        &swapchain_image_views_[i]);
-    assert(result == VK_SUCCESS);
+    VK_CHECK(vkCreateImageView(device_, &image_view_info, nullptr,
+                               &swapchain_image_views_[i]));
 
     // Let's create a framebuffer.
     VkImageView attachments[] = {swapchain_image_views_[i]};
@@ -730,9 +699,8 @@ void RenderSystem::CreateVulkanFramebuffers() {
     framebuffer_info.width = window_extent_.width;
     framebuffer_info.height = window_extent_.height;
     framebuffer_info.layers = 1;
-    result = vkCreateFramebuffer(device_, &framebuffer_info, nullptr,
-                                 &(framebuffers_[i]));
-    assert(result == VK_SUCCESS);
+    VK_CHECK(vkCreateFramebuffer(device_, &framebuffer_info, nullptr,
+                                 &(framebuffers_[i])));
   }
 }
 
@@ -764,8 +732,7 @@ void RenderSystem::CreateVulkanBuffer(VkBufferUsageFlags usage,
   info.usage = usage;
   info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-  VkResult result = vkCreateBuffer(device_, &info, nullptr, buffer);
-  assert(result == VK_SUCCESS);
+  VK_CHECK(vkCreateBuffer(device_, &info, nullptr, buffer));
 
   // Allocate memory for buffer:
 
@@ -779,8 +746,7 @@ void RenderSystem::CreateVulkanBuffer(VkBufferUsageFlags usage,
       FindMemoryType(memory_requirements.memoryTypeBits,
                        VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
                            VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
-  result = vkAllocateMemory(device_, &alloc_info, nullptr, memory);
-  assert(result == VK_SUCCESS);
+  VK_CHECK(vkAllocateMemory(device_, &alloc_info, nullptr, memory));
 
   // Bind memory to buffer:
   vkBindBufferMemory(device_, *buffer, *memory, 0);
