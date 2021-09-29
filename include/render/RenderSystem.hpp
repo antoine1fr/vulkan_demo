@@ -1,6 +1,7 @@
 #pragma once
 
 #include <map>
+#include <memory>
 #include <tuple>
 #include <unordered_map>
 #include <vector>
@@ -55,13 +56,13 @@ class RenderSystem {
   std::vector<VkFence> in_flight_images_;
   size_t current_frame_;
   size_t frame_number_;
-  vulkan::Buffer* vertex_buffer_;
   std::vector<vulkan::Buffer*>
       ubos_for_frames_;  ///< uniform buffer objects referenced by frame id
   VkDescriptorSetLayout descriptor_set_layout_;
   VkDescriptorPool descriptor_pool_;
   std::vector<VkDescriptorSet> descriptor_sets_;
-  std::unordered_map<ResourceId, vulkan::Buffer*> vulkan_buffers_;
+  std::unordered_map<ResourceId, std::unique_ptr<vulkan::Buffer>>
+      vulkan_buffers_;
 
  private:
   std::vector<VkPhysicalDevice> EnumeratePhysicalDevices(VkInstance instance);

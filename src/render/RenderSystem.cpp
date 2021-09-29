@@ -719,17 +719,17 @@ void RenderSystem::CreateVulkanVertexBuffer() {
   vertices[2].uv = glm::vec2(0.0f, 1.0f);
   size_t size = sizeof(vertices[0]) * vertices.size();
 
-  vertex_buffer_ = new vulkan::Buffer(physical_device_, device_,
-                                      VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
-                                      static_cast<VkDeviceSize>(size));
+  auto vertex_buffer = std::make_unique<vulkan::Buffer>(
+      physical_device_, device_, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+      static_cast<VkDeviceSize>(size));
 
   // Fill up buffer memory with data:
-  void* data = vertex_buffer_->Map<void>();
+  void* data = vertex_buffer->Map<void>();
   memcpy(data, vertices.data(), size);
-  vertex_buffer_->Unmap();
+  vertex_buffer->Unmap();
 
   size_t id = std::hash<std::string>{}("triangle_vertex_buffer");
-  vulkan_buffers_[id] = vertex_buffer_;
+  vulkan_buffers_[id] = std::move(vertex_buffer);
 }
 
 void RenderSystem::CreateUniformBufferObjects(size_t buffer_size) {
@@ -838,7 +838,6 @@ RenderSystem::RenderSystem()
       in_flight_images_{},
       current_frame_(0),
       frame_number_(0),
-      vertex_buffer_(VK_NULL_HANDLE),
       ubos_for_frames_{},
       descriptor_set_layout_(VK_NULL_HANDLE),
       descriptor_pool_(VK_NULL_HANDLE),
@@ -869,6 +868,7 @@ void RenderSystem::Init(
 }
 
 void RenderSystem::Cleanup() {
+  vulkan_buffers_.clear();
   for (size_t i = 0; i < kMaxFrames; ++i) {
     vkDestroySemaphore(device_, render_finished_semaphores_[i], nullptr);
     vkDestroySemaphore(device_, image_available_semaphores_[i], nullptr);
@@ -879,7 +879,6 @@ void RenderSystem::Cleanup() {
   vkDestroyPipeline(device_, pipeline_, nullptr);
   vkDestroyShaderModule(device_, vertex_shader_module_, nullptr);
   vkDestroyShaderModule(device_, fragment_shader_module_, nullptr);
-  delete vertex_buffer_;
   vkDestroyCommandPool(device_, command_pool_, nullptr);
   vkDestroyDescriptorPool(device_, descriptor_pool_, nullptr);
   vkDestroyDescriptorSetLayout(device_, descriptor_set_layout_, nullptr);
