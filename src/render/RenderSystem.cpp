@@ -705,7 +705,6 @@ void RenderSystem::CreateVulkanFramebuffers() {
   }
 }
 
-
 void RenderSystem::CreateVulkanVertexBuffer() {
   std::array<render::Vertex, 3> vertices{};
   vertices[0].position = glm::vec2(0.0f, -0.5f);
