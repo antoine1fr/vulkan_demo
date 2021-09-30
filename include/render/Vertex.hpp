@@ -1,5 +1,8 @@
 #pragma once
 
+#include <glm/glm.hpp>
+#include <array>
+
 namespace render {
 struct Vertex {
   glm::vec2 position;

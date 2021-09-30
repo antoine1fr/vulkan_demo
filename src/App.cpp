@@ -11,6 +11,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #include "App.hpp"
+#include "render/Vertex.hpp"
 #include "system.hpp"
 
 namespace {
@@ -36,6 +37,18 @@ App::App() {
       sizeof(PassUniforms) + sizeof(ObjectUniforms), blocks};
   CreateFramePacket();
   render_system_.Init(ubo_descriptor);
+
+  std::vector<render::Vertex> vertices(3);
+  vertices[0].position = glm::vec2(0.0f, -0.5f);
+  vertices[0].color = glm::vec3(1.0f, 0.0f, 0.0f);
+  vertices[0].uv = glm::vec2(0.0f, 0.0f);
+  vertices[1].position = glm::vec2(0.5f, 0.5f);
+  vertices[1].color = glm::vec3(0.0f, 1.0f, 0.0f);
+  vertices[1].uv = glm::vec2(1.0f, 0.0f);
+  vertices[2].position = glm::vec2(-0.5f, 0.5f);
+  vertices[2].color = glm::vec3(0.0f, 0.0f, 1.0f);
+  vertices[2].uv = glm::vec2(0.0f, 1.0f);
+  render_system_.CreateVertexBuffer("triangle_vertex_buffer", vertices);
 }
 
 App::~App() {

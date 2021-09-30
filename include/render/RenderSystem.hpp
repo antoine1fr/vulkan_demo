@@ -13,6 +13,7 @@
 
 #include "base.hpp"
 #include "render/Frame.hpp"
+#include "render/Vertex.hpp"
 #include "render/vulkan/Buffer.hpp"
 
 namespace render {
@@ -97,7 +98,6 @@ class RenderSystem {
                           const render::Frame::UniformBlock& block);
   std::vector<VkImage> GetSwapchainImages();
   void CreateVulkanFramebuffers();
-  void CreateVulkanVertexBuffer();
   void CreateUniformBufferObjects(size_t buffer_size);
   void CreateDescriptorPool();
   void AllocateDescriptorSets(
@@ -112,6 +112,8 @@ class RenderSystem {
   RenderSystem& operator=(RenderSystem&&) = delete;
 
   void Cleanup();
+  size_t CreateVertexBuffer(const std::string& name,
+                            const std::vector<render::Vertex>& vertices);
   void DrawFrame(const Frame&);
   void Init(const UniformBufferDescriptor& uniform_buffer_descriptor);
   std::tuple<uint32_t, uint32_t> GetWindowDimensions() const;

@@ -11,7 +11,6 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #include "render/RenderSystem.hpp"
-#include "render/Vertex.hpp"
 #include "system.hpp"
 
 namespace render {
@@ -705,19 +704,10 @@ void RenderSystem::CreateVulkanFramebuffers() {
   }
 }
 
-void RenderSystem::CreateVulkanVertexBuffer() {
-  std::array<render::Vertex, 3> vertices{};
-  vertices[0].position = glm::vec2(0.0f, -0.5f);
-  vertices[0].color = glm::vec3(1.0f, 0.0f, 0.0f);
-  vertices[0].uv = glm::vec2(0.0f, 0.0f);
-  vertices[1].position = glm::vec2(0.5f, 0.5f);
-  vertices[1].color = glm::vec3(0.0f, 1.0f, 0.0f);
-  vertices[2].position = glm::vec2(-0.5f, 0.5f);
-  vertices[1].uv = glm::vec2(1.0f, 0.0f);
-  vertices[2].color = glm::vec3(0.0f, 0.0f, 1.0f);
-  vertices[2].uv = glm::vec2(0.0f, 1.0f);
-  size_t size = sizeof(vertices[0]) * vertices.size();
-
+size_t RenderSystem::CreateVertexBuffer(
+    const std::string& name,
+    const std::vector<render::Vertex>& vertices) {
+  const size_t size = sizeof(vertices[0]) * vertices.size();
   auto vertex_buffer = std::make_unique<vulkan::Buffer>(
       physical_device_, device_, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
@@ -729,8 +719,9 @@ void RenderSystem::CreateVulkanVertexBuffer() {
   memcpy(data, vertices.data(), size);
   vertex_buffer->Unmap();
 
-  size_t id = std::hash<std::string>{}("triangle_vertex_buffer");
+  size_t id = std::hash<std::string>{}(name);
   vulkan_buffers_[id] = std::move(vertex_buffer);
+  return id;
 }
 
 void RenderSystem::CreateUniformBufferObjects(size_t buffer_size) {
@@ -862,7 +853,6 @@ void RenderSystem::Init(
   CreateVulkanPipeline();
   CreateVulkanFramebuffers();
   CreateVulkanCommandPool();
-  CreateVulkanVertexBuffer();
   CreateUniformBufferObjects(uniform_buffer_descriptor.size);
   CreateVulkanCommandBuffer();
   CreateSyncObjects();
