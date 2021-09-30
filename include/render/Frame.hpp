@@ -13,6 +13,7 @@ struct Frame {
     struct RenderObject {
       UniformBlock uniform_block;
       ResourceId vertex_buffer_id;
+      size_t vertex_count;
     };
 
     UniformBlock uniform_block;

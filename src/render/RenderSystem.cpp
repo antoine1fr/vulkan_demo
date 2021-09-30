@@ -646,7 +646,8 @@ void RenderSystem::DrawFrame(const Frame& frame) {
                               VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout_,
                               0, 1, &descriptor_sets_[current_frame_], 0,
                               nullptr);
-      vkCmdDraw(command_buffers_[current_frame_], 3, 1, 0, 0);
+      vkCmdDraw(command_buffers_[current_frame_], render_object.vertex_count, 1,
+                0, 0);
     }
   }
 

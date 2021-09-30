@@ -38,16 +38,26 @@ App::App() {
   CreateFramePacket();
   render_system_.Init(ubo_descriptor);
 
-  std::vector<render::Vertex> vertices(3);
-  vertices[0].position = glm::vec2(0.0f, -0.5f);
+  std::vector<render::Vertex> vertices(6);
+  vertices[0].position = glm::vec2(-0.5f, 0.5f);
   vertices[0].color = glm::vec3(1.0f, 0.0f, 0.0f);
-  vertices[0].uv = glm::vec2(0.0f, 0.0f);
+  vertices[0].uv = glm::vec2(0.0f, 1.0f);
   vertices[1].position = glm::vec2(0.5f, 0.5f);
   vertices[1].color = glm::vec3(0.0f, 1.0f, 0.0f);
-  vertices[1].uv = glm::vec2(1.0f, 0.0f);
-  vertices[2].position = glm::vec2(-0.5f, 0.5f);
+  vertices[1].uv = glm::vec2(1.0f, 1.0f);
+  vertices[2].position = glm::vec2(-0.5f, -0.5f);
   vertices[2].color = glm::vec3(0.0f, 0.0f, 1.0f);
-  vertices[2].uv = glm::vec2(0.0f, 1.0f);
+  vertices[2].uv = glm::vec2(0.0f, 0.0f);
+
+  vertices[3].position = glm::vec2(-0.5f, -0.5f);
+  vertices[3].color = glm::vec3(0.0f, 0.0f, 1.0f);
+  vertices[3].uv = glm::vec2(0.0f, 0.0f);
+  vertices[4].position = glm::vec2(0.5f, 0.5f);
+  vertices[4].color = glm::vec3(0.0f, 1.0f, 0.0f);
+  vertices[4].uv = glm::vec2(1.0f, 1.0f);
+  vertices[5].position = glm::vec2(0.5f, -0.5f);
+  vertices[5].color = glm::vec3(0.0f, 1.0f, 1.0f);
+  vertices[5].uv = glm::vec2(1.0f, 0.0f);
   render_system_.CreateVertexBuffer("triangle_vertex_buffer", vertices);
 }
 
@@ -99,7 +109,7 @@ void App::CreateFramePacket() {
       glm::mat4(1.0f), 1.0f * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
   render::Frame::UniformBlock object_uniform_block{
       object_uniform_data, static_cast<uint32_t>(offset)};
-  render::Frame::Pass::RenderObject render_object{object_uniform_block, id};
+  render::Frame::Pass::RenderObject render_object{object_uniform_block, id, 6};
 
   render::Frame::Pass pass{pass_uniform_block, {render_object}};
 
