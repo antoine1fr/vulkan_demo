@@ -336,15 +336,14 @@ void RenderSystem::CreatePipelineLayout(
   descriptor_layout_info.bindingCount = static_cast<uint32_t>(bindings.size());
   descriptor_layout_info.pBindings = bindings.data();
 
-  assert(vkCreateDescriptorSetLayout(device_, &descriptor_layout_info, nullptr,
-                                     &descriptor_set_layout_) == VK_SUCCESS);
+  VK_CHECK(vkCreateDescriptorSetLayout(device_, &descriptor_layout_info,
+                                       nullptr, &descriptor_set_layout_));
 
   VkPipelineLayoutCreateInfo info{};
   info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
   info.setLayoutCount = 1;
   info.pSetLayouts = &descriptor_set_layout_;
-  assert(vkCreatePipelineLayout(device_, &info, nullptr, &pipeline_layout_) ==
-         VK_SUCCESS);
+  VK_CHECK(vkCreatePipelineLayout(device_, &info, nullptr, &pipeline_layout_));
 }
 
 void RenderSystem::CreateVulkanPipeline() {
