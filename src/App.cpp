@@ -93,10 +93,10 @@ void App::CreateFramePacket() {
   PassUniforms* pass_uniforms =
       reinterpret_cast<PassUniforms*>(pass_uniform_data.data());
   pass_uniforms->view_matrix =
-      glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), glm::vec3(0.0f, 0.0f, 0.0f),
-                  glm::vec3(0.0f, 0.0f, 1.0f));
+      glm::lookAt(glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.0f, 0.0f, 0.0f),
+                  glm::vec3(0.0f, 1.0f, 0.0f));
   pass_uniforms->projection_matrix = glm::perspective(
-      glm::radians(45.0f), window_width / window_height, 0.1f, 10.0f);
+      glm::radians(70.0f), window_width / window_height, 0.1f, 10.0f);
   render::Frame::UniformBlock pass_uniform_block{pass_uniform_data,
                                                  static_cast<uint32_t>(offset)};
 
@@ -105,8 +105,7 @@ void App::CreateFramePacket() {
   std::vector<uint8_t> object_uniform_data(sizeof(ObjectUniforms));
   ObjectUniforms* object_uniforms =
       reinterpret_cast<ObjectUniforms*>(object_uniform_data.data());
-  object_uniforms->world_matrix = glm::rotate(
-      glm::mat4(1.0f), 1.0f * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+  object_uniforms->world_matrix = glm::mat4(1.0f);
   render::Frame::UniformBlock object_uniform_block{
       object_uniform_data, static_cast<uint32_t>(offset)};
   render::Frame::Pass::RenderObject render_object{object_uniform_block, id, 6};
