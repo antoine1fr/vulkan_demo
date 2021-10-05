@@ -121,6 +121,7 @@ class RenderSystem {
   void ChangeImageLayout(VkImage image,
                          VkImageLayout src_layout,
                          VkImageLayout dst_layout);
+  void CopyBuffer(VkBuffer src_buffer, VkBuffer dst_buffer, VkDeviceSize size);
 
  public:
   RenderSystem();
