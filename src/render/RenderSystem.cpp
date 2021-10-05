@@ -375,8 +375,10 @@ void RenderSystem::CreateVulkanCommandBuffer() {
 void RenderSystem::CreatePipelineLayout(
     const UniformBufferDescriptor& uniform_buffer_descriptor) {
   std::vector<VkDescriptorSetLayoutBinding> bindings(
-      uniform_buffer_descriptor.blocks.size());
+      uniform_buffer_descriptor.blocks.size() + 1);
   size_t i = 0;
+
+  // First the uniform block bindings.
   for (const auto& block : uniform_buffer_descriptor.blocks) {
     bindings[i].binding = block.binding;
     bindings[i].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
@@ -384,6 +386,14 @@ void RenderSystem::CreatePipelineLayout(
     bindings[i].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
     i++;
   }
+
+  // Then a hard-coded sampler.
+  // TODO: make handling of samplers data-driven.
+  bindings[i].binding = static_cast<uint32_t>(i);
+  bindings[i].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+  bindings[i].descriptorCount = 1;
+  bindings[i].pImmutableSamplers = nullptr;
+  bindings[i].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
   VkDescriptorSetLayoutCreateInfo descriptor_layout_info{};
   descriptor_layout_info.sType =
@@ -792,16 +802,20 @@ void RenderSystem::CreateUniformBufferObjects(size_t buffer_size) {
 
 void RenderSystem::CreateDescriptorPool() {
   uint32_t descriptor_count =
-      static_cast<uint32_t>(swapchain_image_views_.size()) * 2;
-  VkDescriptorPoolSize pool_size{};
-  pool_size.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-  pool_size.descriptorCount = descriptor_count;
+      static_cast<uint32_t>(swapchain_image_views_.size());
+  std::array<VkDescriptorPoolSize, 3> pool_sizes{};
+  pool_sizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+  pool_sizes[0].descriptorCount = descriptor_count;
+  pool_sizes[1].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+  pool_sizes[1].descriptorCount = descriptor_count;
+  pool_sizes[2].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+  pool_sizes[2].descriptorCount = descriptor_count;
 
   VkDescriptorPoolCreateInfo info{};
   info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
   info.maxSets = descriptor_count;
-  info.poolSizeCount = 1;
-  info.pPoolSizes = &pool_size;
+  info.poolSizeCount = static_cast<uint32_t>(pool_sizes.size());
+  info.pPoolSizes = pool_sizes.data();
 
   VK_CHECK(vkCreateDescriptorPool(device_, &info, nullptr, &descriptor_pool_));
 }
@@ -824,40 +838,40 @@ void RenderSystem::AllocateDescriptorSets(
   for (size_t i = 0; i < layouts.size(); ++i) {
     std::vector<VkDescriptorBufferInfo> buffer_infos(
         uniform_buffer_descriptor.blocks.size());
+    std::array<VkWriteDescriptorSet, 3> write_infos{};
+    auto it = uniform_buffer_descriptor.blocks.begin();
     size_t j = 0;
-    for (const auto& block_descriptor : uniform_buffer_descriptor.blocks) {
+    for (; j < buffer_infos.size(); ++j) {
+      const auto& block_descriptor = *it;
+
       buffer_infos[j].buffer = ubos_for_frames_[i]->buffer_;
       buffer_infos[j].offset = block_descriptor.offset;
       buffer_infos[j].range = block_descriptor.range;
-      j++;
+
+      write_infos[j].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+      write_infos[j].dstSet = descriptor_sets_[i];
+      write_infos[j].dstBinding = static_cast<uint32_t>(j);
+      write_infos[j].dstArrayElement = 0;
+      write_infos[j].descriptorCount = 1;
+      write_infos[j].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+      write_infos[j].pBufferInfo = &(buffer_infos[0]);
     }
 
-    /*buffer_infos[0].buffer = ubos_for_frames_[i];
-    buffer_infos[0].offset = 0;
-    buffer_infos[0].range = sizeof(PassUniforms);
+    VkDescriptorImageInfo image_info{};
+    image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    image_info.imageView = debug_image_view_;
+    image_info.sampler = debug_sampler_;
 
-    buffer_infos[1].buffer = ubos_for_frames_[i];
-    buffer_infos[1].offset = sizeof(PassUniforms);
-    buffer_infos[1].range = sizeof(ObjectUniforms);*/
+    write_infos[j].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    write_infos[j].dstSet = descriptor_sets_[i];
+    write_infos[j].dstBinding = static_cast<uint32_t>(j);
+    write_infos[j].dstArrayElement = 0;
+    write_infos[j].descriptorCount = 1;
+    write_infos[j].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    write_infos[j].pImageInfo = &image_info;
 
-    std::array<VkWriteDescriptorSet, 2> write_infos{};
-    write_infos[0].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    write_infos[0].dstSet = descriptor_sets_[i];
-    write_infos[0].dstBinding = 0;
-    write_infos[0].dstArrayElement = 0;
-    write_infos[0].descriptorCount = 1;
-    write_infos[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    write_infos[0].pBufferInfo = &(buffer_infos[0]);
-
-    write_infos[1].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    write_infos[1].dstSet = descriptor_sets_[i];
-    write_infos[1].dstBinding = 1;
-    write_infos[1].dstArrayElement = 0;
-    write_infos[1].descriptorCount = 1;
-    write_infos[1].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    write_infos[1].pBufferInfo = &(buffer_infos[1]);
-
-    vkUpdateDescriptorSets(device_, 2, write_infos.data(), 0, nullptr);
+    vkUpdateDescriptorSets(device_, static_cast<uint32_t>(write_infos.size()),
+                           write_infos.data(), 0, nullptr);
   }
 }
 
