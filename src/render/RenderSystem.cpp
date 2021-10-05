@@ -909,7 +909,8 @@ RenderSystem::RenderSystem()
 
 void RenderSystem::Init(
     const UniformBufferDescriptor& uniform_buffer_descriptor) {
-  window_ = SDL_CreateWindow("Vulkan demo", 0, 0, window_extent_.width,
+  window_ = SDL_CreateWindow("Vulkan demo", SDL_WINDOWPOS_CENTERED,
+                             SDL_WINDOWPOS_CENTERED, window_extent_.width,
                              window_extent_.height, SDL_WINDOW_VULKAN);
   assert(window_ != nullptr);
   CreateVulkanInstance();
