@@ -4,16 +4,67 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <memory>
 #include <sstream>
 
 #define GLM_FORCE_RADIANS
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
+#include <SDL_image.h>
+
 #include "render/RenderSystem.hpp"
 #include "system.hpp"
 
 namespace render {
+namespace {
+SDL_Surface* CreateMirrorSurface(SDL_Surface* surface) {
+  int width = surface->w;
+  int height = surface->h;
+  SDL_Surface* new_surface = SDL_CreateRGBSurfaceWithFormat(
+      0, width, height, 32, SDL_PIXELFORMAT_RGBA32);
+  uint32_t* src_pixels = reinterpret_cast<uint32_t*>(surface->pixels);
+  uint32_t* dst_pixels = reinterpret_cast<uint32_t*>(new_surface->pixels);
+
+  assert(SDL_LockSurface(new_surface) == 0);
+  assert(SDL_LockSurface(surface) == 0);
+  for (size_t y = 0; y < height; ++y) {
+    for (size_t x = 0; x < width; ++x) {
+      uint32_t* src_ptr = src_pixels + y * width + x;
+      uint32_t* dst_ptr = dst_pixels + ((height - y - 1) * width) + x;
+      *dst_ptr = *src_ptr;
+    }
+  }
+  SDL_UnlockSurface(surface);
+  SDL_UnlockSurface(new_surface);
+  return new_surface;
+}
+
+SDL_Surface* LoadSdlImageFromFile(const std::string& path) {
+  std::cout << "Loading texture from file: " << path << '\n';
+  SDL_Surface* original_surface = IMG_Load(path.c_str());
+  SDL_Surface* rgba32_surface =
+      SDL_ConvertSurfaceFormat(original_surface, SDL_PIXELFORMAT_RGBA32, 0);
+  SDL_FreeSurface(original_surface);
+  SDL_Surface* mirror_surface = CreateMirrorSurface(rgba32_surface);
+  SDL_FreeSurface(rgba32_surface);
+  return mirror_surface;
+}
+
+void BlitSdlSurfaceToVulkanBuffer(SDL_Surface* surface,
+                                  vulkan::Buffer& staging_buffer) {
+  SDL_LockSurface(surface);
+  auto src_ptr = reinterpret_cast<uint8_t*>(surface->pixels);
+  auto dst_ptr = staging_buffer.Map<uint8_t>();
+  size_t size = static_cast<size_t>(surface->w) *
+                static_cast<size_t>(surface->h) *
+                static_cast<size_t>(surface->format->BytesPerPixel);
+  std::memcpy(dst_ptr, src_ptr, size);
+  staging_buffer.Unmap();
+  SDL_UnlockSurface(surface);
+  SDL_FreeSurface(surface);
+}
+}  // namespace
 
 void RenderSystem::CheckExtensions(
     std::vector<VkExtensionProperties> available_extensions_vec,
@@ -856,11 +907,15 @@ void RenderSystem::Init(
   CreateUniformBufferObjects(uniform_buffer_descriptor.size);
   CreateVulkanCommandBuffer();
   CreateSyncObjects();
+  LoadVulkanImageFromFile("../../../assets/yeah.png");
   CreateDescriptorPool();
   AllocateDescriptorSets(uniform_buffer_descriptor);
 }
 
 void RenderSystem::Cleanup() {
+  vkDestroySampler(device_, debug_sampler_, nullptr);
+  vkDestroyImageView(device_, debug_image_view_, nullptr);
+  debug_image_.reset(nullptr);
   vulkan_buffers_.clear();
   for (size_t i = 0; i < kMaxFrames; ++i) {
     vkDestroySemaphore(device_, render_finished_semaphores_[i], nullptr);
@@ -893,5 +948,157 @@ void RenderSystem::WaitIdle() {
 
 std::tuple<uint32_t, uint32_t> RenderSystem::GetWindowDimensions() const {
   return std::make_tuple(window_extent_.width, window_extent_.height);
+}
+
+void RenderSystem::LoadVulkanImageFromFile(const std::string& path) {
+  SDL_Surface* surface = LoadSdlImageFromFile(path);
+  VkDeviceSize staging_buffer_size =
+      static_cast<VkDeviceSize>(surface->w) *
+      static_cast<VkDeviceSize>(surface->h) *
+      static_cast<VkDeviceSize>(surface->format->BytesPerPixel);
+
+  vulkan::Buffer staging_buffer(physical_device_, device_,
+                                VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                                VK_MEMORY_PROPERTY_HOST_COHERENT_BIT |
+                                    VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
+                                staging_buffer_size);
+  BlitSdlSurfaceToVulkanBuffer(surface, staging_buffer);
+  debug_image_ = std::make_unique<vulkan::Image>(
+      physical_device_, device_, static_cast<uint32_t>(surface->w),
+      static_cast<uint32_t>(surface->h));
+
+  ChangeImageLayout(debug_image_->image_, VK_IMAGE_LAYOUT_UNDEFINED,
+                    VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+  CopyBufferToImage(staging_buffer, debug_image_.get(), surface->w, surface->h);
+  ChangeImageLayout(debug_image_->image_, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+  debug_image_view_ = GenerateImageView(debug_image_->image_);
+  debug_sampler_ = CreateSampler();
+}
+
+VkSampler RenderSystem::CreateSampler() {
+  VkSampler sampler;
+
+  // TODO: cache physical device properties.
+  VkPhysicalDeviceProperties properties{};
+  vkGetPhysicalDeviceProperties(physical_device_, &properties);
+
+  VkSamplerCreateInfo info{};
+  info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+  info.magFilter = VK_FILTER_LINEAR;
+  info.minFilter = VK_FILTER_LINEAR;
+  info.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+  info.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+  info.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+  info.anisotropyEnable = VK_TRUE;
+  info.maxAnisotropy = properties.limits.maxSamplerAnisotropy;
+  info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+  info.compareEnable = VK_FALSE;
+  info.compareOp = VK_COMPARE_OP_ALWAYS;
+
+  VK_CHECK(vkCreateSampler(device_, &info, nullptr, &sampler));
+
+  return sampler;
+}
+
+VkImageView RenderSystem::GenerateImageView(VkImage image) {
+  VkImageView image_view;
+
+  VkImageViewCreateInfo image_view_info{};
+  image_view_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+  image_view_info.image = image;
+  image_view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+  image_view_info.format = VK_FORMAT_R8G8B8A8_SRGB;
+  image_view_info.subresourceRange.layerCount = 1;
+  image_view_info.subresourceRange.levelCount = 1;
+  image_view_info.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+
+  VK_CHECK(vkCreateImageView(device_, &image_view_info, nullptr, &image_view));
+  return image_view;
+}
+
+VkCommandBuffer RenderSystem::BeginCommands() {
+  VkCommandBuffer command_buffer;
+  VkCommandBufferAllocateInfo buffer_info{};
+  buffer_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+  buffer_info.commandBufferCount = 1;
+  buffer_info.commandPool = command_pool_;
+  buffer_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+
+  VK_CHECK(vkAllocateCommandBuffers(device_, &buffer_info, &command_buffer));
+
+  VkCommandBufferBeginInfo begin_info{};
+  begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+  begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+  vkBeginCommandBuffer(command_buffer, &begin_info);
+  return command_buffer;
+}
+
+void RenderSystem::EndCommands(VkCommandBuffer command_buffer) {
+  vkEndCommandBuffer(command_buffer);
+
+  VkSubmitInfo submit_info{};
+  submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+  submit_info.commandBufferCount = 1;
+  submit_info.pCommandBuffers = &command_buffer;
+
+  VK_CHECK(vkQueueSubmit(queue_, 1, &submit_info, VK_NULL_HANDLE));
+  VK_CHECK(vkQueueWaitIdle(queue_));
+  vkFreeCommandBuffers(device_, command_pool_, 1, &command_buffer);
+}
+
+void RenderSystem::CopyBufferToImage(vulkan::Buffer& buffer,
+                                     vulkan::Image* image,
+                                     uint32_t width,
+                                     uint32_t height) {
+  VkCommandBuffer command_buffer = BeginCommands();
+  VkBufferImageCopy copy_info{};
+  copy_info.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+  copy_info.imageSubresource.layerCount = 1;
+  copy_info.imageExtent.width = width;
+  copy_info.imageExtent.height = height;
+  copy_info.imageExtent.depth = 1;
+  vkCmdCopyBufferToImage(command_buffer, buffer.buffer_, image->image_,
+                         VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy_info);
+  EndCommands(command_buffer);
+}
+
+void RenderSystem::ChangeImageLayout(VkImage image,
+                                     VkImageLayout src_layout,
+                                     VkImageLayout dst_layout) {
+  VkCommandBuffer command_buffer = BeginCommands();
+  VkImageMemoryBarrier barrier{};
+  barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+  barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+  barrier.image = image;
+  barrier.newLayout = dst_layout;
+  barrier.oldLayout = src_layout;
+  barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+  barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+  barrier.subresourceRange.levelCount = 1;
+  barrier.subresourceRange.layerCount = 1;
+
+  VkPipelineStageFlags src_stage;
+  VkPipelineStageFlags dst_stage;
+
+  if (src_layout == VK_IMAGE_LAYOUT_UNDEFINED &&
+      dst_layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL) {
+    barrier.srcAccessMask = 0;
+    barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    src_stage = VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT;
+    dst_stage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+  } else if (src_layout == VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL &&
+             dst_layout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL) {
+    barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    src_stage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+    dst_stage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+  }
+
+  vkCmdPipelineBarrier(command_buffer, src_stage, dst_stage, 0, 0, nullptr, 0,
+                       nullptr, 1, &barrier);
+  EndCommands(command_buffer);
 }
 }  // namespace render

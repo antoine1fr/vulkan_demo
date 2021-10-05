@@ -15,6 +15,7 @@ add_executable(vulkan_demo
   "src/App.cpp"
   "src/render/RenderSystem.cpp"
   "src/render/vulkan/Buffer.cpp"
+  "src/render/vulkan/Image.cpp"
   "src/render/vulkan/Memory.cpp")
 target_include_directories(
   vulkan_demo
@@ -25,6 +26,7 @@ target_include_directories(
 target_link_libraries(vulkan_demo
   glm::glm
   SDL2::SDL2
+  SDL2_image::SDL2_image
   Vulkan::Vulkan)
 target_compile_features(vulkan_demo PRIVATE cxx_std_17)
 set_target_properties(vulkan_demo PROPERTIES CXX_EXTENSIONS OFF)

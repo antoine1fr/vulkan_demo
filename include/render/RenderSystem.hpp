@@ -15,6 +15,7 @@
 #include "render/Frame.hpp"
 #include "render/Vertex.hpp"
 #include "render/vulkan/Buffer.hpp"
+#include "render/vulkan/Image.hpp"
 
 namespace render {
 struct UniformBufferDescriptor {
@@ -65,6 +66,10 @@ class RenderSystem {
   std::unordered_map<ResourceId, std::unique_ptr<vulkan::Buffer>>
       vulkan_buffers_;
 
+  std::unique_ptr<vulkan::Image> debug_image_ = {};
+  VkImageView debug_image_view_ = VK_NULL_HANDLE;
+  VkSampler debug_sampler_ = VK_NULL_HANDLE;
+
  private:
   std::vector<VkPhysicalDevice> EnumeratePhysicalDevices(VkInstance instance);
   void CheckExtensions(
@@ -102,6 +107,20 @@ class RenderSystem {
   void CreateDescriptorPool();
   void AllocateDescriptorSets(
       const UniformBufferDescriptor& uniform_buffer_descriptor);
+
+  // Resource management
+  VkCommandBuffer BeginCommands();
+  void EndCommands(VkCommandBuffer command_buffer);
+  void LoadVulkanImageFromFile(const std::string& path);
+  VkSampler CreateSampler();
+  VkImageView GenerateImageView(VkImage image);
+  void CopyBufferToImage(vulkan::Buffer& buffer,
+                         vulkan::Image* image,
+                         uint32_t width,
+                         uint32_t height);
+  void ChangeImageLayout(VkImage image,
+                         VkImageLayout src_layout,
+                         VkImageLayout dst_layout);
 
  public:
   RenderSystem();
