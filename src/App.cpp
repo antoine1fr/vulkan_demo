@@ -40,24 +40,24 @@ App::App() {
 
   std::vector<render::Vertex> vertices(6);
   vertices[0].position = glm::vec2(-0.5f, 0.5f);
-  vertices[0].color = glm::vec3(1.0f, 0.0f, 0.0f);
-  vertices[0].uv = glm::vec2(0.0f, 1.0f);
+  vertices[0].color = glm::vec3(1.0f, 1.0f, 1.0f);
+  vertices[0].uv = glm::vec2(0.0f, 0.0f);
   vertices[1].position = glm::vec2(0.5f, 0.5f);
-  vertices[1].color = glm::vec3(0.0f, 1.0f, 0.0f);
-  vertices[1].uv = glm::vec2(1.0f, 1.0f);
+  vertices[1].color = glm::vec3(1.0f, 1.0f, 1.0f);
+  vertices[1].uv = glm::vec2(1.0f, 0.0f);
   vertices[2].position = glm::vec2(-0.5f, -0.5f);
-  vertices[2].color = glm::vec3(0.0f, 0.0f, 1.0f);
-  vertices[2].uv = glm::vec2(0.0f, 0.0f);
+  vertices[2].color = glm::vec3(1.0f, 1.0f, 1.0f);
+  vertices[2].uv = glm::vec2(0.0f, 1.0f);
 
   vertices[3].position = glm::vec2(-0.5f, -0.5f);
-  vertices[3].color = glm::vec3(0.0f, 0.0f, 1.0f);
-  vertices[3].uv = glm::vec2(0.0f, 0.0f);
+  vertices[3].color = glm::vec3(1.0f, 1.0f, 1.0f);
+  vertices[3].uv = glm::vec2(0.0f, 1.0f);
   vertices[4].position = glm::vec2(0.5f, 0.5f);
-  vertices[4].color = glm::vec3(0.0f, 1.0f, 0.0f);
-  vertices[4].uv = glm::vec2(1.0f, 1.0f);
+  vertices[4].color = glm::vec3(1.0f, 1.0f, 1.0f);
+  vertices[4].uv = glm::vec2(1.0f, 0.0f);
   vertices[5].position = glm::vec2(0.5f, -0.5f);
-  vertices[5].color = glm::vec3(0.0f, 1.0f, 1.0f);
-  vertices[5].uv = glm::vec2(1.0f, 0.0f);
+  vertices[5].color = glm::vec3(1.0f, 1.0f, 1.0f);
+  vertices[5].uv = glm::vec2(1.0f, 1.0f);
   render_system_.CreateVertexBuffer("triangle_vertex_buffer", vertices);
 }
 
