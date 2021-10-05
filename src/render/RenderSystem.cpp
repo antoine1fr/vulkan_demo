@@ -196,7 +196,7 @@ void RenderSystem::SelectBestSurfaceFormat(VkSurfaceFormatKHR& surface_format) {
   surface_format = formats[best_index];
 }
 
-void RenderSystem::CreateVulkanSwapchain() {
+void RenderSystem::CreateSwapchain() {
   VkSurfaceFormatKHR surface_format;
   SelectBestSurfaceFormat(surface_format);
   swapchain_image_format_ = surface_format.format;
@@ -352,7 +352,7 @@ void RenderSystem::CreateDevice() {
   vkGetDeviceQueue(device_, queue_family_index_, 0, &queue_);
 }
 
-void RenderSystem::CreateVulkanCommandPool() {
+void RenderSystem::CreateCommandPool() {
   VkCommandPoolCreateInfo create_info{};
   create_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
   create_info.flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT |
@@ -362,7 +362,7 @@ void RenderSystem::CreateVulkanCommandPool() {
   VK_CHECK(vkCreateCommandPool(device_, &create_info, nullptr, &command_pool_));
 }
 
-void RenderSystem::CreateVulkanCommandBuffer() {
+void RenderSystem::CreateCommandBuffer() {
   VkCommandBufferAllocateInfo info{};
   info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
   info.commandPool = command_pool_;
@@ -411,7 +411,7 @@ void RenderSystem::CreatePipelineLayout(
   VK_CHECK(vkCreatePipelineLayout(device_, &info, nullptr, &pipeline_layout_));
 }
 
-void RenderSystem::CreateVulkanPipeline() {
+void RenderSystem::CreatePipeline() {
   VkPipelineShaderStageCreateInfo vertex_shader_stage_info{};
   vertex_shader_stage_info.sType =
       VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -728,7 +728,7 @@ std::vector<VkImage> RenderSystem::GetSwapchainImages() {
   return images;
 }
 
-void RenderSystem::CreateVulkanFramebuffers() {
+void RenderSystem::CreateFramebuffers() {
   // Create one framebuffer per image in the swapchain.
   std::vector<VkImage> images = GetSwapchainImages();
   swapchain_image_views_.resize(images.size());
@@ -916,16 +916,16 @@ void RenderSystem::Init(
   CreateVulkanSurface();
   FindPhysicalDevice();
   CreateDevice();
-  CreateVulkanSwapchain();
+  CreateSwapchain();
   LoadShaders();
   CreatePipelineLayout(uniform_buffer_descriptor);
-  CreateVulkanPipeline();
-  CreateVulkanFramebuffers();
-  CreateVulkanCommandPool();
+  CreatePipeline();
+  CreateFramebuffers();
+  CreateCommandPool();
   CreateUniformBufferObjects(uniform_buffer_descriptor.size);
-  CreateVulkanCommandBuffer();
+  CreateCommandBuffer();
   CreateSyncObjects();
-  LoadVulkanImageFromFile("../../../assets/yeah.png");
+  LoadImageFromFile("../../../assets/yeah.png");
   CreateDescriptorPool();
   AllocateDescriptorSets(uniform_buffer_descriptor);
 }
@@ -968,7 +968,7 @@ std::tuple<uint32_t, uint32_t> RenderSystem::GetWindowDimensions() const {
   return std::make_tuple(window_extent_.width, window_extent_.height);
 }
 
-void RenderSystem::LoadVulkanImageFromFile(const std::string& path) {
+void RenderSystem::LoadImageFromFile(const std::string& path) {
   SDL_Surface* surface = LoadSdlImageFromFile(path);
   VkDeviceSize staging_buffer_size =
       static_cast<VkDeviceSize>(surface->w) *

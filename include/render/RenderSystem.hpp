@@ -80,7 +80,7 @@ class RenderSystem {
   void CreateVulkanInstance();
   void CreateVulkanSurface();
   void SelectBestSurfaceFormat(VkSurfaceFormatKHR& surface_format);
-  void CreateVulkanSwapchain();
+  void CreateSwapchain();
   void FindPhysicalDevice();
   void EnumerateDeviceExtensions(
       VkPhysicalDevice device,
@@ -88,11 +88,11 @@ class RenderSystem {
   void CheckDeviceExtensions(VkPhysicalDevice physical_device,
                              std::vector<const char*> wanted_extensions);
   void CreateDevice();
-  void CreateVulkanCommandPool();
-  void CreateVulkanCommandBuffer();
+  void CreateCommandPool();
+  void CreateCommandBuffer();
   void CreatePipelineLayout(
       const UniformBufferDescriptor& uniform_buffer_descriptor);
-  void CreateVulkanPipeline();
+  void CreatePipeline();
   std::string LoadFile(const std::string& path, std::ios::openmode mode);
   VkShaderModule LoadShader(const std::string& path);
   void LoadShaders();
@@ -102,7 +102,7 @@ class RenderSystem {
   void UpdateUniformBlock(size_t frame_id,
                           const render::Frame::UniformBlock& block);
   std::vector<VkImage> GetSwapchainImages();
-  void CreateVulkanFramebuffers();
+  void CreateFramebuffers();
   void CreateUniformBufferObjects(size_t buffer_size);
   void CreateDescriptorPool();
   void AllocateDescriptorSets(
@@ -111,7 +111,7 @@ class RenderSystem {
   // Resource management
   VkCommandBuffer BeginCommands();
   void EndCommands(VkCommandBuffer command_buffer);
-  void LoadVulkanImageFromFile(const std::string& path);
+  void LoadImageFromFile(const std::string& path);
   VkSampler CreateSampler();
   VkImageView GenerateImageView(VkImage image);
   void CopyBufferToImage(vulkan::Buffer& buffer,
