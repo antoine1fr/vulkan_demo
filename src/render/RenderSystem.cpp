@@ -773,20 +773,41 @@ size_t RenderSystem::CreateVertexBuffer(
     const std::string& name,
     const std::vector<render::Vertex>& vertices) {
   const size_t size = sizeof(vertices[0]) * vertices.size();
-  auto vertex_buffer = std::make_unique<vulkan::Buffer>(
-      physical_device_, device_, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+  auto staging_vertex_buffer = std::make_unique<vulkan::Buffer>(
+      physical_device_, device_, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
           VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
       static_cast<VkDeviceSize>(size));
 
   // Fill up buffer memory with data:
-  void* data = vertex_buffer->Map<void>();
+  void* data = staging_vertex_buffer->Map<void>();
   memcpy(data, vertices.data(), size);
-  vertex_buffer->Unmap();
+  staging_vertex_buffer->Unmap();
+
+  auto vertex_buffer = std::make_unique<vulkan::Buffer>(
+      physical_device_, device_,
+      VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, static_cast<VkDeviceSize>(size));
+  CopyBuffer(staging_vertex_buffer->buffer_, vertex_buffer->buffer_,
+             static_cast<VkDeviceSize>(size));
 
   size_t id = std::hash<std::string>{}(name);
   vulkan_buffers_[id] = std::move(vertex_buffer);
+
   return id;
+}
+
+void RenderSystem::CopyBuffer(VkBuffer src_buffer,
+                              VkBuffer dst_buffer,
+                              VkDeviceSize size) {
+  VkBufferCopy copy_info{};
+  copy_info.srcOffset = 0;
+  copy_info.dstOffset = 0;
+  copy_info.size = size;
+
+  VkCommandBuffer command_buffer = BeginCommands();
+  vkCmdCopyBuffer(command_buffer, src_buffer, dst_buffer, 1, &copy_info);
+  EndCommands(command_buffer);
 }
 
 void RenderSystem::CreateUniformBufferObjects(size_t buffer_size) {
