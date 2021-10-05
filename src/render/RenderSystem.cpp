@@ -336,12 +336,16 @@ void RenderSystem::CreateDevice() {
   queue_info.queueCount = 1;
   queue_info.pQueuePriorities = &queue_priorities;
 
+  VkPhysicalDeviceFeatures device_features{};
+  device_features.samplerAnisotropy = VK_TRUE;
+
   VkDeviceCreateInfo info{};
   info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
   info.queueCreateInfoCount = 1;
   info.pQueueCreateInfos = &queue_info;
   info.enabledExtensionCount = static_cast<uint32_t>(extensions.size());
   info.ppEnabledExtensionNames = extensions.data();
+  info.pEnabledFeatures = &device_features;
 
   VK_CHECK(vkCreateDevice(physical_device_, &info, nullptr, &device_));
 
