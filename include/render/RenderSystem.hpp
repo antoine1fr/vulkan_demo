@@ -34,43 +34,43 @@ class RenderSystem {
  private:
   const size_t kMaxFrames = 2;
 
-  VkExtent2D window_extent_;
-  SDL_Window* window_;
-  VkInstance instance_;
-  VkPhysicalDevice physical_device_;
-  uint32_t queue_family_index_;
-  VkDevice device_;
-  VkQueue queue_;
-  VkCommandPool command_pool_;
+  VkExtent2D window_extent_ = {800, 600};
+  SDL_Window* window_ = nullptr;
+  VkInstance instance_ = VK_NULL_HANDLE;
+  VkPhysicalDevice physical_device_ = VK_NULL_HANDLE;
+  uint32_t queue_family_index_ = 0;
+  VkDevice device_ = VK_NULL_HANDLE;
+  VkQueue queue_ = VK_NULL_HANDLE;
+  VkCommandPool command_pool_ = VK_NULL_HANDLE;
   std::vector<VkCommandBuffer> command_buffers_;
-  VkSurfaceKHR surface_;
-  VkSwapchainKHR swapchain_;
-  std::vector<VkImageView> swapchain_image_views_;
-  std::vector<VkFramebuffer> framebuffers_;
-  VkShaderModule vertex_shader_module_;
-  VkShaderModule fragment_shader_module_;
-  VkPipelineLayout pipeline_layout_;
-  VkPipeline pipeline_;
-  VkRenderPass render_pass_;
-  VkFormat swapchain_image_format_;
-  std::vector<VkSemaphore> image_available_semaphores_;
-  std::vector<VkSemaphore> render_finished_semaphores_;
-  std::vector<VkFence> in_flight_fences_;
-  std::vector<VkFence> in_flight_images_;
-  size_t current_frame_;
-  size_t frame_number_;
-  std::vector<vulkan::Buffer*>
-      ubos_for_frames_;  ///< uniform buffer objects referenced by frame id
-  VkDescriptorSetLayout pass_descriptor_set_layout_;
-  std::vector<VkDescriptorSet> pass_descriptor_sets_;
-  VkDescriptorSetLayout render_object_descriptor_set_layout_;
-  VkDescriptorSet render_object_descriptor_set_;
+  VkSurfaceKHR surface_ = VK_NULL_HANDLE;
+  VkSwapchainKHR swapchain_ = VK_NULL_HANDLE;
+  std::vector<VkImageView> swapchain_image_views_ = {};
+  std::vector<VkFramebuffer> framebuffers_ = {};
+  VkShaderModule vertex_shader_module_ = VK_NULL_HANDLE;
+  VkShaderModule fragment_shader_module_ = VK_NULL_HANDLE;
+  VkPipelineLayout pipeline_layout_ = VK_NULL_HANDLE;
+  VkPipeline pipeline_ = VK_NULL_HANDLE;
+  VkRenderPass render_pass_ = VK_NULL_HANDLE;
+  VkFormat swapchain_image_format_ = VK_FORMAT_UNDEFINED;
+  std::vector<VkSemaphore> image_available_semaphores_ = {};
+  std::vector<VkSemaphore> render_finished_semaphores_ = {};
+  std::vector<VkFence> in_flight_fences_ = {};
+  std::vector<VkFence> in_flight_images_ = {};
+  size_t current_frame_ = 0;
+  size_t frame_number_ = 0;
+  std::vector<vulkan::Buffer*> ubos_for_frames_ =
+      {};  ///< uniform buffer objects referenced by frame id
+  VkDescriptorSetLayout pass_descriptor_set_layout_ = VK_NULL_HANDLE;
+  std::vector<VkDescriptorSet> pass_descriptor_sets_ = {};
+  VkDescriptorSetLayout render_object_descriptor_set_layout_ = VK_NULL_HANDLE;
+  VkDescriptorSet render_object_descriptor_set_ = VK_NULL_HANDLE;
   std::unordered_map<ResourceId, std::unique_ptr<vulkan::Buffer>>
-      vulkan_buffers_;
+      vulkan_buffers_ = {};
 
   using Material = std::tuple<std::unique_ptr<vulkan::Image>, VkImageView, VkSampler>;
   std::unique_ptr<vulkan::DescriptorPoolCache> descriptor_pool_cache_ = {};
-  std::unordered_map<ResourceId, Material> materials_;
+  std::unordered_map<ResourceId, Material> materials_ = {};
   ResourceId debug_material_id_ = 0;
 
  private:
