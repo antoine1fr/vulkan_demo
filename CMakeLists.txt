@@ -16,7 +16,8 @@ add_executable(vulkan_demo
   "src/render/RenderSystem.cpp"
   "src/render/vulkan/Buffer.cpp"
   "src/render/vulkan/Image.cpp"
-  "src/render/vulkan/Memory.cpp")
+  "src/render/vulkan/Memory.cpp"
+  "src/render/vulkan/DescriptorPoolCache.cpp")
 target_include_directories(
   vulkan_demo
   PUBLIC

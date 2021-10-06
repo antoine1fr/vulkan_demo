@@ -15,6 +15,7 @@
 #include "render/Frame.hpp"
 #include "render/Vertex.hpp"
 #include "render/vulkan/Buffer.hpp"
+#include "render/vulkan/DescriptorPoolCache.hpp"
 #include "render/vulkan/Image.hpp"
 
 namespace render {
@@ -60,15 +61,17 @@ class RenderSystem {
   size_t frame_number_;
   std::vector<vulkan::Buffer*>
       ubos_for_frames_;  ///< uniform buffer objects referenced by frame id
-  VkDescriptorSetLayout descriptor_set_layout_;
-  VkDescriptorPool descriptor_pool_;
-  std::vector<VkDescriptorSet> descriptor_sets_;
+  VkDescriptorSetLayout pass_descriptor_set_layout_;
+  std::vector<VkDescriptorSet> pass_descriptor_sets_;
+  VkDescriptorSetLayout render_object_descriptor_set_layout_;
+  VkDescriptorSet render_object_descriptor_set_;
   std::unordered_map<ResourceId, std::unique_ptr<vulkan::Buffer>>
       vulkan_buffers_;
 
-  std::unique_ptr<vulkan::Image> debug_image_ = {};
-  VkImageView debug_image_view_ = VK_NULL_HANDLE;
-  VkSampler debug_sampler_ = VK_NULL_HANDLE;
+  using Material = std::tuple<std::unique_ptr<vulkan::Image>, VkImageView, VkSampler>;
+  std::unique_ptr<vulkan::DescriptorPoolCache> descriptor_pool_cache_ = {};
+  std::unordered_map<ResourceId, Material> materials_;
+  ResourceId debug_material_id_ = 0;
 
  private:
   std::vector<VkPhysicalDevice> EnumeratePhysicalDevices(VkInstance instance);
@@ -90,8 +93,10 @@ class RenderSystem {
   void CreateDevice();
   void CreateCommandPool();
   void CreateCommandBuffer();
-  void CreatePipelineLayout(
+  void CreatePassDescriptorSetLayout(
       const UniformBufferDescriptor& uniform_buffer_descriptor);
+  void CreateRenderObjectDescriptorSetLayout();
+  void CreatePipelineLayout();
   void CreatePipeline();
   std::string LoadFile(const std::string& path, std::ios::openmode mode);
   VkShaderModule LoadShader(const std::string& path);
@@ -104,14 +109,14 @@ class RenderSystem {
   std::vector<VkImage> GetSwapchainImages();
   void CreateFramebuffers();
   void CreateUniformBufferObjects(size_t buffer_size);
-  void CreateDescriptorPool();
-  void AllocateDescriptorSets(
+  void AllocateUboDescriptorSets(
       const UniformBufferDescriptor& uniform_buffer_descriptor);
+  void AllocateRenderObjectDescriptorSet();
 
   // Resource management
   VkCommandBuffer BeginCommands();
   void EndCommands(VkCommandBuffer command_buffer);
-  void LoadImageFromFile(const std::string& path);
+  ResourceId LoadImageFromFile(const std::string& path);
   VkSampler CreateSampler();
   VkImageView GenerateImageView(VkImage image);
   void CopyBufferToImage(vulkan::Buffer& buffer,
@@ -138,5 +143,9 @@ class RenderSystem {
   void Init(const UniformBufferDescriptor& uniform_buffer_descriptor);
   std::tuple<uint32_t, uint32_t> GetWindowDimensions() const;
   void WaitIdle();
+  std::vector<VkDescriptorSet> AllocateDescriptorSets(
+      VkDescriptorSetLayout layout,
+      size_t descriptor_set_count,
+      const std::vector<VkDescriptorPoolSize>& pool_sizes);
 };
 }  // namespace render

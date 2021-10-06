@@ -17,6 +17,7 @@ class App {
  private:
   render::RenderSystem render_system_;
   render::Frame frame_;
+  size_t material_id_;
 
  private:
   void CreateFramePacket();
