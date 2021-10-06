@@ -17,7 +17,14 @@ VkDescriptorPool DescriptorPoolCache::GetPool(
   info.pPoolSizes = sizes.data();
 
   VK_CHECK(vkCreateDescriptorPool(device_, &info, nullptr, &descriptor_pool));
+  pools_.push_back(descriptor_pool);
   return descriptor_pool;
+}
+
+DescriptorPoolCache::~DescriptorPoolCache() {
+  for (auto pool : pools_) {
+    vkDestroyDescriptorPool(device_, pool, nullptr);
+  }
 }
 }  // namespace vulkan
 }  // namespace render
