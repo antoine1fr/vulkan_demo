@@ -416,7 +416,7 @@ void RenderSystem::CreatePipelineLayout() {
       pass_descriptor_set_layout_, render_object_descriptor_set_layout_};
   VkPipelineLayoutCreateInfo info{};
   info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-  info.setLayoutCount = layouts.size();
+  info.setLayoutCount = static_cast<uint32_t>(layouts.size());
   info.pSetLayouts = layouts.data();
   VK_CHECK(vkCreatePipelineLayout(device_, &info, nullptr, &pipeline_layout_));
 }
@@ -1138,6 +1138,8 @@ void RenderSystem::ChangeImageLayout(VkImage image,
     barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
     src_stage = VK_PIPELINE_STAGE_TRANSFER_BIT;
     dst_stage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+  } else {
+    assert(false);
   }
 
   vkCmdPipelineBarrier(command_buffer, src_stage, dst_stage, 0, 0, nullptr, 0,
