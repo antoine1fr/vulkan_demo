@@ -969,6 +969,7 @@ void RenderSystem::Cleanup() {
   vkDestroyShaderModule(device_, fragment_shader_module_, nullptr);
   vkDestroyCommandPool(device_, command_pool_, nullptr);
   vkDestroyDescriptorSetLayout(device_, pass_descriptor_set_layout_, nullptr);
+  vkDestroyDescriptorSetLayout(device_, render_object_descriptor_set_layout_, nullptr);
   for (size_t i = 0; i < swapchain_image_views_.size(); ++i) {
     delete ubos_for_frames_[i];
     vkDestroyImageView(device_, swapchain_image_views_[i], nullptr);
