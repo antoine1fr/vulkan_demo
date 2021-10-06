@@ -105,7 +105,6 @@ class RenderSystem {
   std::vector<VkImage> GetSwapchainImages();
   void CreateFramebuffers();
   void CreateUniformBufferObjects(size_t buffer_size);
-  void CreateDescriptorPool();
   void AllocateUboDescriptorSets(
       const UniformBufferDescriptor& uniform_buffer_descriptor);
 

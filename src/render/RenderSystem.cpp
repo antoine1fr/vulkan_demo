@@ -821,26 +821,6 @@ void RenderSystem::CreateUniformBufferObjects(size_t buffer_size) {
   }
 }
 
-void RenderSystem::CreateDescriptorPool() {
-  uint32_t descriptor_count =
-      static_cast<uint32_t>(swapchain_image_views_.size());
-  std::array<VkDescriptorPoolSize, 3> pool_sizes{};
-  pool_sizes[0].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-  pool_sizes[0].descriptorCount = descriptor_count;
-  pool_sizes[1].type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-  pool_sizes[1].descriptorCount = descriptor_count;
-  pool_sizes[2].type = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-  pool_sizes[2].descriptorCount = descriptor_count;
-
-  VkDescriptorPoolCreateInfo info{};
-  info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-  info.maxSets = descriptor_count;
-  info.poolSizeCount = static_cast<uint32_t>(pool_sizes.size());
-  info.pPoolSizes = pool_sizes.data();
-
-  VK_CHECK(vkCreateDescriptorPool(device_, &info, nullptr, &descriptor_pool_));
-}
-
 void RenderSystem::AllocateUboDescriptorSets(
     const UniformBufferDescriptor& uniform_buffer_descriptor) {
   size_t descriptor_set_count = swapchain_image_views_.size();
@@ -974,7 +954,6 @@ void RenderSystem::Init(
   descriptor_pool_cache_ =
       std::make_unique<vulkan::DescriptorPoolCache>(device_);
   debug_material_id_ = LoadImageFromFile("../../../assets/yeah.png");
-  CreateDescriptorPool();
   AllocateUboDescriptorSets(uniform_buffer_descriptor);
 }
 
