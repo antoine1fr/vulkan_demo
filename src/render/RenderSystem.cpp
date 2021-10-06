@@ -841,41 +841,43 @@ void RenderSystem::CreateDescriptorPool() {
   VK_CHECK(vkCreateDescriptorPool(device_, &info, nullptr, &descriptor_pool_));
 }
 
-void RenderSystem::AllocateDescriptorSets(
+void RenderSystem::AllocateUboDescriptorSets(
     const UniformBufferDescriptor& uniform_buffer_descriptor) {
-  std::vector<VkDescriptorSetLayout> layouts(swapchain_image_views_.size(),
-                                             descriptor_set_layout_);
-  descriptor_sets_.resize(layouts.size());
-
-  VkDescriptorSetAllocateInfo info{};
-  info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
-  info.descriptorPool = descriptor_pool_;
-  info.descriptorSetCount =
+  size_t descriptor_set_count = swapchain_image_views_.size();
+  uint32_t descriptor_count =
       static_cast<uint32_t>(swapchain_image_views_.size());
-  info.pSetLayouts = layouts.data();
 
-  VK_CHECK(vkAllocateDescriptorSets(device_, &info, descriptor_sets_.data()));
+  ubo_descriptor_sets_ = AllocateDescriptorSets(
+      descriptor_set_layout_, descriptor_set_count,
+      {{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, descriptor_count},
+       {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, descriptor_count},
+       {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, descriptor_count}});
 
-  for (size_t i = 0; i < layouts.size(); ++i) {
-    std::vector<VkDescriptorBufferInfo> buffer_infos(
-        uniform_buffer_descriptor.blocks.size());
-    std::array<VkWriteDescriptorSet, 3> write_infos{};
+  std::vector<VkWriteDescriptorSet> write_infos(descriptor_set_count * 3);
+  std::vector<VkDescriptorBufferInfo> buffer_infos(
+      uniform_buffer_descriptor.blocks.size() * descriptor_count);
+  for (size_t set_id = 0, write_info_id = 0; set_id < descriptor_set_count;
+       ++set_id, ++write_info_id) {
     auto it = uniform_buffer_descriptor.blocks.begin();
-    size_t j = 0;
-    for (; j < buffer_infos.size(); ++j) {
+    for (size_t block_id = 0;
+         block_id < uniform_buffer_descriptor.blocks.size();
+         ++block_id, ++write_info_id) {
       const auto& block_descriptor = *it;
+      size_t i = set_id * uniform_buffer_descriptor.blocks.size() + block_id;
+      buffer_infos[i].buffer = ubos_for_frames_[set_id]->buffer_;
+      buffer_infos[i].offset = block_descriptor.offset;
+      buffer_infos[i].range = block_descriptor.range;
 
-      buffer_infos[j].buffer = ubos_for_frames_[i]->buffer_;
-      buffer_infos[j].offset = block_descriptor.offset;
-      buffer_infos[j].range = block_descriptor.range;
+      write_infos[write_info_id].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+      write_infos[write_info_id].dstSet = ubo_descriptor_sets_[set_id];
+      write_infos[write_info_id].dstBinding = static_cast<uint32_t>(block_id);
+      write_infos[write_info_id].dstArrayElement = 0;
+      write_infos[write_info_id].descriptorCount = 1;
+      write_infos[write_info_id].descriptorType =
+          VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+      write_infos[write_info_id].pBufferInfo = &buffer_infos[block_id];
 
-      write_infos[j].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-      write_infos[j].dstSet = descriptor_sets_[i];
-      write_infos[j].dstBinding = static_cast<uint32_t>(j);
-      write_infos[j].dstArrayElement = 0;
-      write_infos[j].descriptorCount = 1;
-      write_infos[j].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-      write_infos[j].pBufferInfo = &(buffer_infos[0]);
+      ++it;
     }
 
     VkDescriptorImageInfo image_info{};
@@ -883,17 +885,39 @@ void RenderSystem::AllocateDescriptorSets(
     image_info.imageView = std::get<1>(materials_[debug_material_id_]);
     image_info.sampler = std::get<2>(materials_[debug_material_id_]);
 
-    write_infos[j].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    write_infos[j].dstSet = descriptor_sets_[i];
-    write_infos[j].dstBinding = static_cast<uint32_t>(j);
-    write_infos[j].dstArrayElement = 0;
-    write_infos[j].descriptorCount = 1;
-    write_infos[j].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    write_infos[j].pImageInfo = &image_info;
-
-    vkUpdateDescriptorSets(device_, static_cast<uint32_t>(write_infos.size()),
-                           write_infos.data(), 0, nullptr);
+    write_infos[write_info_id].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    write_infos[write_info_id].dstSet = ubo_descriptor_sets_[set_id];
+    write_infos[write_info_id].dstBinding = 2;
+    write_infos[write_info_id].dstArrayElement = 0;
+    write_infos[write_info_id].descriptorCount = 1;
+    write_infos[write_info_id].descriptorType =
+        VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    write_infos[write_info_id].pImageInfo = &image_info;
   }
+
+  vkUpdateDescriptorSets(device_, static_cast<uint32_t>(write_infos.size()),
+                         write_infos.data(), 0, nullptr);
+}
+
+std::vector<VkDescriptorSet> RenderSystem::AllocateDescriptorSets(
+    VkDescriptorSetLayout layout,
+    size_t descriptor_set_count,
+    const std::vector<VkDescriptorPoolSize>& pool_sizes) {
+  std::vector<VkDescriptorSetLayout> layouts(descriptor_set_count, layout);
+  std::vector<VkDescriptorSet> descriptor_sets(descriptor_set_count,
+                                               VK_NULL_HANDLE);
+  VkDescriptorPool pool =
+      descriptor_pool_cache_->GetPool(descriptor_sets.size(), pool_sizes);
+
+  VkDescriptorSetAllocateInfo info{};
+  info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+  info.descriptorPool = pool;
+  info.descriptorSetCount = static_cast<uint32_t>(descriptor_set_count);
+  info.pSetLayouts = layouts.data();
+
+  VK_CHECK(vkAllocateDescriptorSets(device_, &info, descriptor_sets.data()));
+
+  return descriptor_sets;
 }
 
 RenderSystem::RenderSystem()
@@ -925,7 +949,7 @@ RenderSystem::RenderSystem()
       ubos_for_frames_{},
       descriptor_set_layout_(VK_NULL_HANDLE),
       descriptor_pool_(VK_NULL_HANDLE),
-      descriptor_sets_{},
+      ubo_descriptor_sets_{},
       vulkan_buffers_{} {}
 
 void RenderSystem::Init(
@@ -947,12 +971,15 @@ void RenderSystem::Init(
   CreateUniformBufferObjects(uniform_buffer_descriptor.size);
   CreateCommandBuffer();
   CreateSyncObjects();
+  descriptor_pool_cache_ =
+      std::make_unique<vulkan::DescriptorPoolCache>(device_);
   debug_material_id_ = LoadImageFromFile("../../../assets/yeah.png");
   CreateDescriptorPool();
-  AllocateDescriptorSets(uniform_buffer_descriptor);
+  AllocateUboDescriptorSets(uniform_buffer_descriptor);
 }
 
 void RenderSystem::Cleanup() {
+  descriptor_pool_cache_.reset(nullptr);
   for (const auto& material : materials_) {
     vkDestroyImageView(device_, std::get<1>(material.second), nullptr);
     vkDestroySampler(device_, std::get<2>(material.second), nullptr);

@@ -15,6 +15,7 @@
 #include "render/Frame.hpp"
 #include "render/Vertex.hpp"
 #include "render/vulkan/Buffer.hpp"
+#include "render/vulkan/DescriptorPoolCache.hpp"
 #include "render/vulkan/Image.hpp"
 
 namespace render {
@@ -62,7 +63,7 @@ class RenderSystem {
       ubos_for_frames_;  ///< uniform buffer objects referenced by frame id
   VkDescriptorSetLayout descriptor_set_layout_;
   VkDescriptorPool descriptor_pool_;
-  std::vector<VkDescriptorSet> descriptor_sets_;
+  std::vector<VkDescriptorSet> ubo_descriptor_sets_;
   std::unordered_map<ResourceId, std::unique_ptr<vulkan::Buffer>>
       vulkan_buffers_;
 
@@ -105,7 +106,7 @@ class RenderSystem {
   void CreateFramebuffers();
   void CreateUniformBufferObjects(size_t buffer_size);
   void CreateDescriptorPool();
-  void AllocateDescriptorSets(
+  void AllocateUboDescriptorSets(
       const UniformBufferDescriptor& uniform_buffer_descriptor);
 
   // Resource management
@@ -138,5 +139,9 @@ class RenderSystem {
   void Init(const UniformBufferDescriptor& uniform_buffer_descriptor);
   std::tuple<uint32_t, uint32_t> GetWindowDimensions() const;
   void WaitIdle();
+  std::vector<VkDescriptorSet> AllocateDescriptorSets(
+      VkDescriptorSetLayout layout,
+      size_t descriptor_set_count,
+      const std::vector<VkDescriptorPoolSize>& pool_sizes);
 };
 }  // namespace render
