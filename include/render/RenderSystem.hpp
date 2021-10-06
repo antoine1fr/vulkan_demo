@@ -66,9 +66,9 @@ class RenderSystem {
   std::unordered_map<ResourceId, std::unique_ptr<vulkan::Buffer>>
       vulkan_buffers_;
 
-  std::unique_ptr<vulkan::Image> debug_image_ = {};
-  VkImageView debug_image_view_ = VK_NULL_HANDLE;
-  VkSampler debug_sampler_ = VK_NULL_HANDLE;
+  using Material = std::tuple<std::unique_ptr<vulkan::Image>, VkImageView, VkSampler>;
+  std::unordered_map<ResourceId, Material> materials_;
+  ResourceId debug_material_id_ = 0;
 
  private:
   std::vector<VkPhysicalDevice> EnumeratePhysicalDevices(VkInstance instance);
@@ -111,7 +111,7 @@ class RenderSystem {
   // Resource management
   VkCommandBuffer BeginCommands();
   void EndCommands(VkCommandBuffer command_buffer);
-  void LoadImageFromFile(const std::string& path);
+  ResourceId LoadImageFromFile(const std::string& path);
   VkSampler CreateSampler();
   VkImageView GenerateImageView(VkImage image);
   void CopyBufferToImage(vulkan::Buffer& buffer,

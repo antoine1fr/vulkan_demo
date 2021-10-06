@@ -880,8 +880,8 @@ void RenderSystem::AllocateDescriptorSets(
 
     VkDescriptorImageInfo image_info{};
     image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    image_info.imageView = debug_image_view_;
-    image_info.sampler = debug_sampler_;
+    image_info.imageView = std::get<1>(materials_[debug_material_id_]);
+    image_info.sampler = std::get<2>(materials_[debug_material_id_]);
 
     write_infos[j].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     write_infos[j].dstSet = descriptor_sets_[i];
@@ -947,15 +947,17 @@ void RenderSystem::Init(
   CreateUniformBufferObjects(uniform_buffer_descriptor.size);
   CreateCommandBuffer();
   CreateSyncObjects();
-  LoadImageFromFile("../../../assets/yeah.png");
+  debug_material_id_ = LoadImageFromFile("../../../assets/yeah.png");
   CreateDescriptorPool();
   AllocateDescriptorSets(uniform_buffer_descriptor);
 }
 
 void RenderSystem::Cleanup() {
-  vkDestroySampler(device_, debug_sampler_, nullptr);
-  vkDestroyImageView(device_, debug_image_view_, nullptr);
-  debug_image_.reset(nullptr);
+  for (const auto& material : materials_) {
+    vkDestroyImageView(device_, std::get<1>(material.second), nullptr);
+    vkDestroySampler(device_, std::get<2>(material.second), nullptr);
+  }
+  materials_.clear();
   vulkan_buffers_.clear();
   for (size_t i = 0; i < kMaxFrames; ++i) {
     vkDestroySemaphore(device_, render_finished_semaphores_[i], nullptr);
@@ -990,7 +992,7 @@ std::tuple<uint32_t, uint32_t> RenderSystem::GetWindowDimensions() const {
   return std::make_tuple(window_extent_.width, window_extent_.height);
 }
 
-void RenderSystem::LoadImageFromFile(const std::string& path) {
+ResourceId RenderSystem::LoadImageFromFile(const std::string& path) {
   SDL_Surface* surface = LoadSdlImageFromFile(path);
   VkDeviceSize staging_buffer_size =
       static_cast<VkDeviceSize>(surface->w) *
@@ -1003,18 +1005,22 @@ void RenderSystem::LoadImageFromFile(const std::string& path) {
                                     VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
                                 staging_buffer_size);
   BlitSdlSurfaceToVulkanBuffer(surface, staging_buffer);
-  debug_image_ = std::make_unique<vulkan::Image>(
+  auto image = std::make_unique<vulkan::Image>(
       physical_device_, device_, static_cast<uint32_t>(surface->w),
       static_cast<uint32_t>(surface->h));
 
-  ChangeImageLayout(debug_image_->image_, VK_IMAGE_LAYOUT_UNDEFINED,
+  ChangeImageLayout(image->image_, VK_IMAGE_LAYOUT_UNDEFINED,
                     VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-  CopyBufferToImage(staging_buffer, debug_image_.get(), surface->w, surface->h);
-  ChangeImageLayout(debug_image_->image_, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+  CopyBufferToImage(staging_buffer, image.get(), surface->w, surface->h);
+  ChangeImageLayout(image->image_, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                     VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
 
-  debug_image_view_ = GenerateImageView(debug_image_->image_);
-  debug_sampler_ = CreateSampler();
+  VkImageView image_view = GenerateImageView(image->image_);
+  VkSampler sampler = CreateSampler();
+
+  ResourceId id = std::hash<std::string>{}(path);
+  materials_[id] = Material(std::move(image), image_view, sampler);
+  return id;
 }
 
 VkSampler RenderSystem::CreateSampler() {
