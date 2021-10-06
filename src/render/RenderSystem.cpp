@@ -919,36 +919,7 @@ std::vector<VkDescriptorSet> RenderSystem::AllocateDescriptorSets(
   return descriptor_sets;
 }
 
-RenderSystem::RenderSystem()
-    : window_extent_{800, 600},
-      window_(nullptr),
-      instance_(VK_NULL_HANDLE),
-      physical_device_(VK_NULL_HANDLE),
-      queue_family_index_(VK_NULL_HANDLE),
-      device_(VK_NULL_HANDLE),
-      queue_(VK_NULL_HANDLE),
-      command_pool_(VK_NULL_HANDLE),
-      command_buffers_(kMaxFrames, VK_NULL_HANDLE),
-      surface_(VK_NULL_HANDLE),
-      swapchain_(VK_NULL_HANDLE),
-      swapchain_image_views_{},
-      framebuffers_{},
-      vertex_shader_module_(VK_NULL_HANDLE),
-      fragment_shader_module_(VK_NULL_HANDLE),
-      pipeline_layout_(VK_NULL_HANDLE),
-      pipeline_(VK_NULL_HANDLE),
-      render_pass_(VK_NULL_HANDLE),
-      swapchain_image_format_(VK_FORMAT_UNDEFINED),
-      image_available_semaphores_{},
-      render_finished_semaphores_{},
-      in_flight_fences_{},
-      in_flight_images_{},
-      current_frame_(0),
-      frame_number_(0),
-      ubos_for_frames_{},
-      pass_descriptor_set_layout_(VK_NULL_HANDLE),
-      pass_descriptor_sets_{},
-      vulkan_buffers_{} {}
+RenderSystem::RenderSystem() : command_buffers_(kMaxFrames, VK_NULL_HANDLE) {}
 
 void RenderSystem::Init(
     const UniformBufferDescriptor& uniform_buffer_descriptor) {
