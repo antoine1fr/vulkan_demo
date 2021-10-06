@@ -61,13 +61,15 @@ class RenderSystem {
   size_t frame_number_;
   std::vector<vulkan::Buffer*>
       ubos_for_frames_;  ///< uniform buffer objects referenced by frame id
-  VkDescriptorSetLayout descriptor_set_layout_;
-  VkDescriptorPool descriptor_pool_;
-  std::vector<VkDescriptorSet> ubo_descriptor_sets_;
+  VkDescriptorSetLayout pass_descriptor_set_layout_;
+  std::vector<VkDescriptorSet> pass_descriptor_sets_;
+  VkDescriptorSetLayout render_object_descriptor_set_layout_;
+  VkDescriptorSet render_object_descriptor_set_;
   std::unordered_map<ResourceId, std::unique_ptr<vulkan::Buffer>>
       vulkan_buffers_;
 
   using Material = std::tuple<std::unique_ptr<vulkan::Image>, VkImageView, VkSampler>;
+  std::unique_ptr<vulkan::DescriptorPoolCache> descriptor_pool_cache_ = {};
   std::unordered_map<ResourceId, Material> materials_;
   ResourceId debug_material_id_ = 0;
 
@@ -91,8 +93,10 @@ class RenderSystem {
   void CreateDevice();
   void CreateCommandPool();
   void CreateCommandBuffer();
-  void CreatePipelineLayout(
+  void CreatePassDescriptorSetLayout(
       const UniformBufferDescriptor& uniform_buffer_descriptor);
+  void CreateRenderObjectDescriptorSetLayout();
+  void CreatePipelineLayout();
   void CreatePipeline();
   std::string LoadFile(const std::string& path, std::ios::openmode mode);
   VkShaderModule LoadShader(const std::string& path);
@@ -107,6 +111,7 @@ class RenderSystem {
   void CreateUniformBufferObjects(size_t buffer_size);
   void AllocateUboDescriptorSets(
       const UniformBufferDescriptor& uniform_buffer_descriptor);
+  void AllocateRenderObjectDescriptorSet();
 
   // Resource management
   VkCommandBuffer BeginCommands();

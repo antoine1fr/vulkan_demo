@@ -372,10 +372,10 @@ void RenderSystem::CreateCommandBuffer() {
   VK_CHECK(vkAllocateCommandBuffers(device_, &info, command_buffers_.data()));
 }
 
-void RenderSystem::CreatePipelineLayout(
+void RenderSystem::CreatePassDescriptorSetLayout(
     const UniformBufferDescriptor& uniform_buffer_descriptor) {
   std::vector<VkDescriptorSetLayoutBinding> bindings(
-      uniform_buffer_descriptor.blocks.size() + 1);
+      uniform_buffer_descriptor.blocks.size());
   size_t i = 0;
 
   // First the uniform block bindings.
@@ -387,14 +387,6 @@ void RenderSystem::CreatePipelineLayout(
     i++;
   }
 
-  // Then a hard-coded sampler.
-  // TODO: make handling of samplers data-driven.
-  bindings[i].binding = static_cast<uint32_t>(i);
-  bindings[i].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-  bindings[i].descriptorCount = 1;
-  bindings[i].pImmutableSamplers = nullptr;
-  bindings[i].stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
-
   VkDescriptorSetLayoutCreateInfo descriptor_layout_info{};
   descriptor_layout_info.sType =
       VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
@@ -402,12 +394,30 @@ void RenderSystem::CreatePipelineLayout(
   descriptor_layout_info.pBindings = bindings.data();
 
   VK_CHECK(vkCreateDescriptorSetLayout(device_, &descriptor_layout_info,
-                                       nullptr, &descriptor_set_layout_));
+                                       nullptr, &pass_descriptor_set_layout_));
+}
 
+void RenderSystem::CreateRenderObjectDescriptorSetLayout() {
+  std::vector<VkDescriptorSetLayoutBinding> bindings{
+      {0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1,
+       VK_SHADER_STAGE_FRAGMENT_BIT, nullptr}};
+
+  VkDescriptorSetLayoutCreateInfo info{};
+  info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+  info.bindingCount = static_cast<uint32_t>(bindings.size());
+  info.pBindings = bindings.data();
+
+  VK_CHECK(vkCreateDescriptorSetLayout(device_, &info, nullptr,
+                                       &render_object_descriptor_set_layout_));
+}
+
+void RenderSystem::CreatePipelineLayout() {
+  std::vector<VkDescriptorSetLayout> layouts = {
+      pass_descriptor_set_layout_, render_object_descriptor_set_layout_};
   VkPipelineLayoutCreateInfo info{};
   info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-  info.setLayoutCount = 1;
-  info.pSetLayouts = &descriptor_set_layout_;
+  info.setLayoutCount = layouts.size();
+  info.pSetLayouts = layouts.data();
   VK_CHECK(vkCreatePipelineLayout(device_, &info, nullptr, &pipeline_layout_));
 }
 
@@ -696,6 +706,10 @@ void RenderSystem::UpdateUniformBlock(
 void RenderSystem::DrawFrame(const Frame& frame) {
   uint32_t image_index = BeginFrame();
 
+  vkCmdBindDescriptorSets(command_buffers_[current_frame_],
+                          VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout_, 0,
+                          1, &pass_descriptor_sets_[current_frame_], 0,
+                          nullptr);
   for (const auto& pass : frame.passes) {
     UpdateUniformBlock(current_frame_, pass.uniform_block);
     for (const auto& render_object : pass.render_objects) {
@@ -708,8 +722,7 @@ void RenderSystem::DrawFrame(const Frame& frame) {
                              vertex_buffers, offsets);
       vkCmdBindDescriptorSets(command_buffers_[current_frame_],
                               VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout_,
-                              0, 1, &descriptor_sets_[current_frame_], 0,
-                              nullptr);
+                              1, 1, &render_object_descriptor_set_, 0, nullptr);
       vkCmdDraw(command_buffers_[current_frame_],
                 static_cast<uint32_t>(render_object.vertex_count), 1, 0, 0);
     }
@@ -823,33 +836,30 @@ void RenderSystem::CreateUniformBufferObjects(size_t buffer_size) {
 
 void RenderSystem::AllocateUboDescriptorSets(
     const UniformBufferDescriptor& uniform_buffer_descriptor) {
-  size_t descriptor_set_count = swapchain_image_views_.size();
   uint32_t descriptor_count =
       static_cast<uint32_t>(swapchain_image_views_.size());
+  size_t block_count = uniform_buffer_descriptor.blocks.size();
+  size_t write_count = descriptor_count * block_count;
 
-  ubo_descriptor_sets_ = AllocateDescriptorSets(
-      descriptor_set_layout_, descriptor_set_count,
-      {{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, descriptor_count},
-       {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, descriptor_count},
-       {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, descriptor_count}});
+  pass_descriptor_sets_ = AllocateDescriptorSets(
+      pass_descriptor_set_layout_, descriptor_count,
+      {{VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, descriptor_count * 2}});
 
-  std::vector<VkWriteDescriptorSet> write_infos(descriptor_set_count * 3);
-  std::vector<VkDescriptorBufferInfo> buffer_infos(
-      uniform_buffer_descriptor.blocks.size() * descriptor_count);
-  for (size_t set_id = 0, write_info_id = 0; set_id < descriptor_set_count;
-       ++set_id, ++write_info_id) {
+  std::vector<VkWriteDescriptorSet> write_infos(write_count);
+  std::vector<VkDescriptorBufferInfo> buffer_infos(write_count);
+  for (size_t set_id = 0, write_info_id = 0; set_id < descriptor_count;
+       ++set_id) {
     auto it = uniform_buffer_descriptor.blocks.begin();
-    for (size_t block_id = 0;
-         block_id < uniform_buffer_descriptor.blocks.size();
+    for (size_t block_id = 0; block_id < block_count;
          ++block_id, ++write_info_id) {
       const auto& block_descriptor = *it;
-      size_t i = set_id * uniform_buffer_descriptor.blocks.size() + block_id;
+      size_t i = set_id * block_count + block_id;
       buffer_infos[i].buffer = ubos_for_frames_[set_id]->buffer_;
       buffer_infos[i].offset = block_descriptor.offset;
       buffer_infos[i].range = block_descriptor.range;
 
       write_infos[write_info_id].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-      write_infos[write_info_id].dstSet = ubo_descriptor_sets_[set_id];
+      write_infos[write_info_id].dstSet = pass_descriptor_sets_[set_id];
       write_infos[write_info_id].dstBinding = static_cast<uint32_t>(block_id);
       write_infos[write_info_id].dstArrayElement = 0;
       write_infos[write_info_id].descriptorCount = 1;
@@ -859,24 +869,33 @@ void RenderSystem::AllocateUboDescriptorSets(
 
       ++it;
     }
-
-    VkDescriptorImageInfo image_info{};
-    image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    image_info.imageView = std::get<1>(materials_[debug_material_id_]);
-    image_info.sampler = std::get<2>(materials_[debug_material_id_]);
-
-    write_infos[write_info_id].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    write_infos[write_info_id].dstSet = ubo_descriptor_sets_[set_id];
-    write_infos[write_info_id].dstBinding = 2;
-    write_infos[write_info_id].dstArrayElement = 0;
-    write_infos[write_info_id].descriptorCount = 1;
-    write_infos[write_info_id].descriptorType =
-        VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-    write_infos[write_info_id].pImageInfo = &image_info;
   }
 
   vkUpdateDescriptorSets(device_, static_cast<uint32_t>(write_infos.size()),
                          write_infos.data(), 0, nullptr);
+}
+
+void RenderSystem::AllocateRenderObjectDescriptorSet() {
+  auto sets =
+      AllocateDescriptorSets(render_object_descriptor_set_layout_, 1,
+                             {{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1}});
+  render_object_descriptor_set_ = sets[0];
+
+  VkDescriptorImageInfo image_info{};
+  image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+  image_info.imageView = std::get<1>(materials_[debug_material_id_]);
+  image_info.sampler = std::get<2>(materials_[debug_material_id_]);
+
+  VkWriteDescriptorSet write_info{};
+  write_info.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+  write_info.dstSet = render_object_descriptor_set_;
+  write_info.dstBinding = 0;
+  write_info.dstArrayElement = 0;
+  write_info.descriptorCount = 1;
+  write_info.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+  write_info.pImageInfo = &image_info;
+
+  vkUpdateDescriptorSets(device_, 1, &write_info, 0, nullptr);
 }
 
 std::vector<VkDescriptorSet> RenderSystem::AllocateDescriptorSets(
@@ -927,9 +946,8 @@ RenderSystem::RenderSystem()
       current_frame_(0),
       frame_number_(0),
       ubos_for_frames_{},
-      descriptor_set_layout_(VK_NULL_HANDLE),
-      descriptor_pool_(VK_NULL_HANDLE),
-      ubo_descriptor_sets_{},
+      pass_descriptor_set_layout_(VK_NULL_HANDLE),
+      pass_descriptor_sets_{},
       vulkan_buffers_{} {}
 
 void RenderSystem::Init(
@@ -944,7 +962,9 @@ void RenderSystem::Init(
   CreateDevice();
   CreateSwapchain();
   LoadShaders();
-  CreatePipelineLayout(uniform_buffer_descriptor);
+  CreatePassDescriptorSetLayout(uniform_buffer_descriptor);
+  CreateRenderObjectDescriptorSetLayout();
+  CreatePipelineLayout();
   CreatePipeline();
   CreateFramebuffers();
   CreateCommandPool();
@@ -955,6 +975,7 @@ void RenderSystem::Init(
       std::make_unique<vulkan::DescriptorPoolCache>(device_);
   debug_material_id_ = LoadImageFromFile("../../../assets/yeah.png");
   AllocateUboDescriptorSets(uniform_buffer_descriptor);
+  AllocateRenderObjectDescriptorSet();
 }
 
 void RenderSystem::Cleanup() {
@@ -976,8 +997,7 @@ void RenderSystem::Cleanup() {
   vkDestroyShaderModule(device_, vertex_shader_module_, nullptr);
   vkDestroyShaderModule(device_, fragment_shader_module_, nullptr);
   vkDestroyCommandPool(device_, command_pool_, nullptr);
-  vkDestroyDescriptorPool(device_, descriptor_pool_, nullptr);
-  vkDestroyDescriptorSetLayout(device_, descriptor_set_layout_, nullptr);
+  vkDestroyDescriptorSetLayout(device_, pass_descriptor_set_layout_, nullptr);
   for (size_t i = 0; i < swapchain_image_views_.size(); ++i) {
     delete ubos_for_frames_[i];
     vkDestroyImageView(device_, swapchain_image_views_[i], nullptr);
