@@ -18,6 +18,8 @@ class App {
   render::RenderSystem render_system_;
   render::Frame frame_;
   size_t material_id_;
+  std::vector<render::Vertex> vertices_;
+  std::vector<uint32_t> indices_;
 
  private:
   void CreateFramePacket();

@@ -13,7 +13,6 @@ struct Frame {
     struct RenderObject {
       UniformBlock uniform_block;
       ResourceId mesh_id;
-      size_t index_count;
       ResourceId material_id;
     };
 

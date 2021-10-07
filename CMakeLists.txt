@@ -13,6 +13,7 @@ find_package(Vulkan REQUIRED)
 add_executable(vulkan_demo
   "src/main.cpp"
   "src/App.cpp"
+  "src/render/MeshLoader.cpp"
   "src/render/RenderSystem.cpp"
   "src/render/vulkan/Buffer.cpp"
   "src/render/vulkan/Image.cpp"

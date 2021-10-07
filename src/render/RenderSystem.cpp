@@ -727,8 +727,7 @@ void RenderSystem::DrawFrame(const Frame& frame) {
                               VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout_,
                               1, 1, &render_object_descriptor_set, 0, nullptr);
       vkCmdDrawIndexed(command_buffers_[current_frame_],
-                       static_cast<uint32_t>(render_object.index_count), 1, 0,
-                       0, 0);
+                       static_cast<uint32_t>(mesh.index_count), 1, 0, 0, 0);
     }
   }
 
@@ -793,7 +792,8 @@ size_t RenderSystem::CreateMesh(const std::string& name,
   auto vertex_buffer =
       CreateBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, vertices);
   auto index_buffer = CreateBuffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT, indices);
-  meshes_[id] = Mesh{std::move(vertex_buffer), std::move(index_buffer)};
+  meshes_[id] =
+      Mesh{std::move(vertex_buffer), std::move(index_buffer), indices.size()};
   return id;
 }
 

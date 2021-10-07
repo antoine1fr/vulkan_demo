@@ -1,13 +1,17 @@
 #pragma once
 
-#include <glm/glm.hpp>
+#include <vulkan/vulkan.h>
 #include <array>
+#include <glm/glm.hpp>
 
 namespace render {
 struct Vertex {
-  glm::vec2 position;
+  glm::vec3 position;
+  glm::vec3 normal;
   glm::vec3 color;
   glm::vec2 uv;
+  glm::vec3 tangent;
+  glm::vec3 bitangent;
 
   static VkVertexInputBindingDescription get_binding_description() {
     VkVertexInputBindingDescription desc{};
@@ -17,22 +21,16 @@ struct Vertex {
     return desc;
   }
 
-  static std::array<VkVertexInputAttributeDescription, 3>
+  static std::vector<VkVertexInputAttributeDescription>
   get_attribute_descriptions() {
-    std::array<VkVertexInputAttributeDescription, 3> descs{};
-    descs[0].binding = 0;
-    descs[0].location = 0;
-    descs[0].format = VK_FORMAT_R32G32_SFLOAT;
-    descs[0].offset = offsetof(Vertex, position);
-    descs[1].binding = 0;
-    descs[1].location = 1;
-    descs[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-    descs[1].offset = offsetof(Vertex, color);
-    descs[2].binding = 0;
-    descs[2].location = 2;
-    descs[2].format = VK_FORMAT_R32G32_SFLOAT;
-    descs[2].offset = offsetof(Vertex, uv);
-    return descs;
+    std::vector<VkVertexInputAttributeDescription> desc{
+        {0, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, position)},
+        {1, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, normal)},
+        {2, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, color)},
+        {3, 0, VK_FORMAT_R32G32_SFLOAT, offsetof(Vertex, uv)},
+        {4, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, tangent)},
+        {5, 0, VK_FORMAT_R32G32B32_SFLOAT, offsetof(Vertex, bitangent)}};
+    return desc;
   }
 };
 }  // namespace render

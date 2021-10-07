@@ -11,6 +11,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 
 #include "App.hpp"
+#include "render/MeshLoader.hpp"
 #include "render/Vertex.hpp"
 #include "system.hpp"
 
@@ -38,19 +39,13 @@ App::App() : material_id_(std::hash<std::string>{}("some_material")) {
   CreateFramePacket();
   render_system_.Init(ubo_descriptor);
 
-  std::vector<render::Vertex> vertices{
-      {glm::vec2(-0.5f, 0.5f), glm::vec3(1.0f, 1.0f, 1.0f),
-       glm::vec2(0.0f, 0.0f)},
-      {glm::vec2(0.5f, 0.5f), glm::vec3(1.0f, 1.0f, 1.0f),
-       glm::vec2(1.0f, 0.0f)},
-      {glm::vec2(-0.5f, -0.5f), glm::vec3(1.0f, 1.0f, 1.0f),
-       glm::vec2(0.0f, 1.0f)},
-      {glm::vec2(0.5f, -0.5f), glm::vec3(1.0f, 1.0f, 1.0f),
-       glm::vec2(1.0f, 1.0f)}};
-  std::vector<uint32_t> indices{0, 1, 2, 2, 1, 3};
+  render::MeshLoader mesh_loader;
+  mesh_loader.Load("../../../assets/meshes/Axe_LP_Final.obj", indices_,
+                   vertices_);
 
-  render_system_.CreateMesh("quad_mesh", vertices, indices);
-  render_system_.LoadMaterial(material_id_, {"../../../assets/yeah.png"});
+  render_system_.CreateMesh("quad_mesh", vertices_, indices_);
+  render_system_.LoadMaterial(
+      material_id_, {"../../../assets/textures/AxeLP_Combined_A.png"});
 }
 
 App::~App() {
@@ -84,10 +79,10 @@ void App::CreateFramePacket() {
   PassUniforms* pass_uniforms =
       reinterpret_cast<PassUniforms*>(pass_uniform_data.data());
   pass_uniforms->view_matrix =
-      glm::lookAt(glm::vec3(0.0f, 0.0f, 1.0f), glm::vec3(0.0f, 0.0f, 0.0f),
+      glm::lookAt(glm::vec3(0.0f, 0.0f, 50.0f), glm::vec3(0.0f, 0.0f, 0.0f),
                   glm::vec3(0.0f, 1.0f, 0.0f));
   pass_uniforms->projection_matrix = glm::perspective(
-      glm::radians(70.0f), window_width / window_height, 0.1f, 10.0f);
+      glm::radians(70.0f), window_width / window_height, 0.1f, 1000.0f);
   render::Frame::UniformBlock pass_uniform_block{pass_uniform_data,
                                                  static_cast<uint32_t>(offset)};
 
@@ -100,7 +95,7 @@ void App::CreateFramePacket() {
   render::Frame::UniformBlock object_uniform_block{
       object_uniform_data, static_cast<uint32_t>(offset)};
   render::Frame::Pass::RenderObject render_object{
-      object_uniform_block, hash("quad_mesh"), 6, material_id_};
+      object_uniform_block, hash("quad_mesh"), material_id_};
 
   render::Frame::Pass pass{pass_uniform_block, {render_object}};
 
