@@ -713,6 +713,8 @@ void RenderSystem::DrawFrame(const Frame& frame) {
   for (const auto& pass : frame.passes) {
     UpdateUniformBlock(current_frame_, pass.uniform_block);
     for (const auto& render_object : pass.render_objects) {
+      VkDescriptorSet render_object_descriptor_set =
+          materials_[render_object.material_id];
       VkBuffer vertex_buffer =
           vulkan_buffers_[render_object.vertex_buffer_id]->buffer_;
       VkBuffer vertex_buffers[] = {vertex_buffer};
@@ -722,7 +724,7 @@ void RenderSystem::DrawFrame(const Frame& frame) {
                              vertex_buffers, offsets);
       vkCmdBindDescriptorSets(command_buffers_[current_frame_],
                               VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout_,
-                              1, 1, &render_object_descriptor_set_, 0, nullptr);
+                              1, 1, &render_object_descriptor_set, 0, nullptr);
       vkCmdDraw(command_buffers_[current_frame_],
                 static_cast<uint32_t>(render_object.vertex_count), 1, 0, 0);
     }
@@ -875,29 +877,6 @@ void RenderSystem::AllocateUboDescriptorSets(
                          write_infos.data(), 0, nullptr);
 }
 
-void RenderSystem::AllocateRenderObjectDescriptorSet() {
-  auto sets =
-      AllocateDescriptorSets(render_object_descriptor_set_layout_, 1,
-                             {{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1}});
-  render_object_descriptor_set_ = sets[0];
-
-  VkDescriptorImageInfo image_info{};
-  image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-  image_info.imageView = std::get<1>(materials_[debug_material_id_]);
-  image_info.sampler = std::get<2>(materials_[debug_material_id_]);
-
-  VkWriteDescriptorSet write_info{};
-  write_info.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-  write_info.dstSet = render_object_descriptor_set_;
-  write_info.dstBinding = 0;
-  write_info.dstArrayElement = 0;
-  write_info.descriptorCount = 1;
-  write_info.descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
-  write_info.pImageInfo = &image_info;
-
-  vkUpdateDescriptorSets(device_, 1, &write_info, 0, nullptr);
-}
-
 std::vector<VkDescriptorSet> RenderSystem::AllocateDescriptorSets(
     VkDescriptorSetLayout layout,
     size_t descriptor_set_count,
@@ -944,18 +923,16 @@ void RenderSystem::Init(
   CreateSyncObjects();
   descriptor_pool_cache_ =
       std::make_unique<vulkan::DescriptorPoolCache>(device_);
-  debug_material_id_ = LoadImageFromFile("../../../assets/yeah.png");
   AllocateUboDescriptorSets(uniform_buffer_descriptor);
-  AllocateRenderObjectDescriptorSet();
 }
 
 void RenderSystem::Cleanup() {
   descriptor_pool_cache_.reset(nullptr);
-  for (const auto& material : materials_) {
-    vkDestroyImageView(device_, std::get<1>(material.second), nullptr);
-    vkDestroySampler(device_, std::get<2>(material.second), nullptr);
+  for (const auto& texture : textures_) {
+    vkDestroyImageView(device_, std::get<1>(texture.second), nullptr);
+    vkDestroySampler(device_, std::get<2>(texture.second), nullptr);
   }
-  materials_.clear();
+  textures_.clear();
   vulkan_buffers_.clear();
   for (size_t i = 0; i < kMaxFrames; ++i) {
     vkDestroySemaphore(device_, render_finished_semaphores_[i], nullptr);
@@ -969,7 +946,8 @@ void RenderSystem::Cleanup() {
   vkDestroyShaderModule(device_, fragment_shader_module_, nullptr);
   vkDestroyCommandPool(device_, command_pool_, nullptr);
   vkDestroyDescriptorSetLayout(device_, pass_descriptor_set_layout_, nullptr);
-  vkDestroyDescriptorSetLayout(device_, render_object_descriptor_set_layout_, nullptr);
+  vkDestroyDescriptorSetLayout(device_, render_object_descriptor_set_layout_,
+                               nullptr);
   for (size_t i = 0; i < swapchain_image_views_.size(); ++i) {
     delete ubos_for_frames_[i];
     vkDestroyImageView(device_, swapchain_image_views_[i], nullptr);
@@ -984,6 +962,38 @@ void RenderSystem::Cleanup() {
 
 void RenderSystem::WaitIdle() {
   vkDeviceWaitIdle(device_);
+}
+
+void RenderSystem::LoadMaterial(ResourceId id,
+                                const std::vector<std::string>& paths) {
+  std::vector<VkDescriptorImageInfo> image_info(paths.size());
+  std::vector<VkWriteDescriptorSet> write_info(paths.size());
+  std::vector<VkDescriptorSet> descriptor_sets =
+      AllocateDescriptorSets(render_object_descriptor_set_layout_, 1,
+                             {{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                               static_cast<uint32_t>(paths.size())}});
+  VkDescriptorSet descriptor_set = descriptor_sets[0];
+
+  for (size_t i = 0; i < paths.size(); ++i) {
+    ResourceId id = LoadImageFromFile(paths[i]);
+
+    image_info[i].imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    image_info[i].imageView = std::get<1>(textures_[id]);
+    image_info[i].sampler = std::get<2>(textures_[id]);
+
+    write_info[i].sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    write_info[i].dstSet = descriptor_set;
+    write_info[i].dstBinding = static_cast<uint32_t>(i);
+    write_info[i].dstArrayElement = 0;
+    write_info[i].descriptorCount = 1;
+    write_info[i].descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    write_info[i].pImageInfo = &image_info[i];
+  }
+
+  vkUpdateDescriptorSets(device_, static_cast<uint32_t>(write_info.size()),
+                         write_info.data(), 0, nullptr);
+
+  materials_[id] = descriptor_set;
 }
 
 std::tuple<uint32_t, uint32_t> RenderSystem::GetWindowDimensions() const {
@@ -1017,7 +1027,7 @@ ResourceId RenderSystem::LoadImageFromFile(const std::string& path) {
   VkSampler sampler = CreateSampler();
 
   ResourceId id = std::hash<std::string>{}(path);
-  materials_[id] = Material(std::move(image), image_view, sampler);
+  textures_[id] = Texture(std::move(image), image_view, sampler);
   return id;
 }
 

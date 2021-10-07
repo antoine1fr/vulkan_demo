@@ -14,6 +14,7 @@ struct Frame {
       UniformBlock uniform_block;
       ResourceId vertex_buffer_id;
       size_t vertex_count;
+      ResourceId material_id;
     };
 
     UniformBlock uniform_block;

@@ -68,10 +68,11 @@ class RenderSystem {
   std::unordered_map<ResourceId, std::unique_ptr<vulkan::Buffer>>
       vulkan_buffers_ = {};
 
-  using Material = std::tuple<std::unique_ptr<vulkan::Image>, VkImageView, VkSampler>;
+  using Texture =
+      std::tuple<std::unique_ptr<vulkan::Image>, VkImageView, VkSampler>;
   std::unique_ptr<vulkan::DescriptorPoolCache> descriptor_pool_cache_ = {};
-  std::unordered_map<ResourceId, Material> materials_ = {};
-  ResourceId debug_material_id_ = 0;
+  std::unordered_map<ResourceId, Texture> textures_ = {};
+  std::unordered_map<ResourceId, VkDescriptorSet> materials_ = {};
 
  private:
   std::vector<VkPhysicalDevice> EnumeratePhysicalDevices(VkInstance instance);
@@ -111,7 +112,6 @@ class RenderSystem {
   void CreateUniformBufferObjects(size_t buffer_size);
   void AllocateUboDescriptorSets(
       const UniformBufferDescriptor& uniform_buffer_descriptor);
-  void AllocateRenderObjectDescriptorSet();
 
   // Resource management
   VkCommandBuffer BeginCommands();
@@ -143,6 +143,7 @@ class RenderSystem {
   void Init(const UniformBufferDescriptor& uniform_buffer_descriptor);
   std::tuple<uint32_t, uint32_t> GetWindowDimensions() const;
   void WaitIdle();
+  void LoadMaterial(ResourceId id, const std::vector<std::string>& paths);
   std::vector<VkDescriptorSet> AllocateDescriptorSets(
       VkDescriptorSetLayout layout,
       size_t descriptor_set_count,

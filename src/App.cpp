@@ -28,7 +28,7 @@ static constexpr size_t kUniformBufferSize =
     sizeof(PassUniforms) + sizeof(ObjectUniforms);
 }  // namespace
 
-App::App() {
+App::App() : material_id_(std::hash<std::string>{}("some_material")) {
   assert(SDL_Init(SDL_INIT_EVERYTHING) == 0);
   std::list<render::UniformBufferDescriptor::Block> blocks{
       {0, 0, sizeof(PassUniforms)},
@@ -59,6 +59,7 @@ App::App() {
   vertices[5].color = glm::vec3(1.0f, 1.0f, 1.0f);
   vertices[5].uv = glm::vec2(1.0f, 1.0f);
   render_system_.CreateVertexBuffer("triangle_vertex_buffer", vertices);
+  render_system_.LoadMaterial(material_id_, {"../../../assets/yeah.png"});
 }
 
 App::~App() {
@@ -82,7 +83,7 @@ void App::Run() {
 
 void App::CreateFramePacket() {
   std::hash<std::string> hash{};
-  size_t id = hash("triangle_vertex_buffer");
+  size_t vb_id = hash("triangle_vertex_buffer");
   size_t offset = 0;
   std::tuple<uint32_t, uint32_t> window_dimensions =
       render_system_.GetWindowDimensions();
@@ -108,7 +109,8 @@ void App::CreateFramePacket() {
   object_uniforms->world_matrix = glm::mat4(1.0f);
   render::Frame::UniformBlock object_uniform_block{
       object_uniform_data, static_cast<uint32_t>(offset)};
-  render::Frame::Pass::RenderObject render_object{object_uniform_block, id, 6};
+  render::Frame::Pass::RenderObject render_object{object_uniform_block, vb_id,
+                                                  6, material_id_};
 
   render::Frame::Pass pass{pass_uniform_block, {render_object}};
 
