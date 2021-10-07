@@ -12,8 +12,8 @@ struct Frame {
   struct Pass {
     struct RenderObject {
       UniformBlock uniform_block;
-      ResourceId vertex_buffer_id;
-      size_t vertex_count;
+      ResourceId mesh_id;
+      size_t index_count;
       ResourceId material_id;
     };
 

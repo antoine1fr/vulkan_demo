@@ -38,27 +38,18 @@ App::App() : material_id_(std::hash<std::string>{}("some_material")) {
   CreateFramePacket();
   render_system_.Init(ubo_descriptor);
 
-  std::vector<render::Vertex> vertices(6);
-  vertices[0].position = glm::vec2(-0.5f, 0.5f);
-  vertices[0].color = glm::vec3(1.0f, 1.0f, 1.0f);
-  vertices[0].uv = glm::vec2(0.0f, 0.0f);
-  vertices[1].position = glm::vec2(0.5f, 0.5f);
-  vertices[1].color = glm::vec3(1.0f, 1.0f, 1.0f);
-  vertices[1].uv = glm::vec2(1.0f, 0.0f);
-  vertices[2].position = glm::vec2(-0.5f, -0.5f);
-  vertices[2].color = glm::vec3(1.0f, 1.0f, 1.0f);
-  vertices[2].uv = glm::vec2(0.0f, 1.0f);
+  std::vector<render::Vertex> vertices{
+      {glm::vec2(-0.5f, 0.5f), glm::vec3(1.0f, 1.0f, 1.0f),
+       glm::vec2(0.0f, 0.0f)},
+      {glm::vec2(0.5f, 0.5f), glm::vec3(1.0f, 1.0f, 1.0f),
+       glm::vec2(1.0f, 0.0f)},
+      {glm::vec2(-0.5f, -0.5f), glm::vec3(1.0f, 1.0f, 1.0f),
+       glm::vec2(0.0f, 1.0f)},
+      {glm::vec2(0.5f, -0.5f), glm::vec3(1.0f, 1.0f, 1.0f),
+       glm::vec2(1.0f, 1.0f)}};
+  std::vector<uint32_t> indices{0, 1, 2, 2, 1, 3};
 
-  vertices[3].position = glm::vec2(-0.5f, -0.5f);
-  vertices[3].color = glm::vec3(1.0f, 1.0f, 1.0f);
-  vertices[3].uv = glm::vec2(0.0f, 1.0f);
-  vertices[4].position = glm::vec2(0.5f, 0.5f);
-  vertices[4].color = glm::vec3(1.0f, 1.0f, 1.0f);
-  vertices[4].uv = glm::vec2(1.0f, 0.0f);
-  vertices[5].position = glm::vec2(0.5f, -0.5f);
-  vertices[5].color = glm::vec3(1.0f, 1.0f, 1.0f);
-  vertices[5].uv = glm::vec2(1.0f, 1.0f);
-  render_system_.CreateVertexBuffer("triangle_vertex_buffer", vertices);
+  render_system_.CreateMesh("quad_mesh", vertices, indices);
   render_system_.LoadMaterial(material_id_, {"../../../assets/yeah.png"});
 }
 
@@ -83,7 +74,6 @@ void App::Run() {
 
 void App::CreateFramePacket() {
   std::hash<std::string> hash{};
-  size_t vb_id = hash("triangle_vertex_buffer");
   size_t offset = 0;
   std::tuple<uint32_t, uint32_t> window_dimensions =
       render_system_.GetWindowDimensions();
@@ -109,8 +99,8 @@ void App::CreateFramePacket() {
   object_uniforms->world_matrix = glm::mat4(1.0f);
   render::Frame::UniformBlock object_uniform_block{
       object_uniform_data, static_cast<uint32_t>(offset)};
-  render::Frame::Pass::RenderObject render_object{object_uniform_block, vb_id,
-                                                  6, material_id_};
+  render::Frame::Pass::RenderObject render_object{
+      object_uniform_block, hash("quad_mesh"), 6, material_id_};
 
   render::Frame::Pass pass{pass_uniform_block, {render_object}};
 

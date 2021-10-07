@@ -13,6 +13,7 @@
 
 #include "base.hpp"
 #include "render/Frame.hpp"
+#include "render/Mesh.hpp"
 #include "render/Vertex.hpp"
 #include "render/vulkan/Buffer.hpp"
 #include "render/vulkan/DescriptorPoolCache.hpp"
@@ -65,8 +66,7 @@ class RenderSystem {
   std::vector<VkDescriptorSet> pass_descriptor_sets_ = {};
   VkDescriptorSetLayout render_object_descriptor_set_layout_ = VK_NULL_HANDLE;
   VkDescriptorSet render_object_descriptor_set_ = VK_NULL_HANDLE;
-  std::unordered_map<ResourceId, std::unique_ptr<vulkan::Buffer>>
-      vulkan_buffers_ = {};
+  std::unordered_map<ResourceId, Mesh> meshes_ = {};
 
   using Texture =
       std::tuple<std::unique_ptr<vulkan::Image>, VkImageView, VkSampler>;
@@ -128,6 +128,10 @@ class RenderSystem {
                          VkImageLayout dst_layout);
   void CopyBuffer(VkBuffer src_buffer, VkBuffer dst_buffer, VkDeviceSize size);
 
+  template <typename T>
+  std::unique_ptr<vulkan::Buffer> CreateBuffer(VkBufferUsageFlags usage,
+                                               const std::vector<T>& data);
+
  public:
   RenderSystem();
 
@@ -137,8 +141,9 @@ class RenderSystem {
   RenderSystem& operator=(RenderSystem&&) = delete;
 
   void Cleanup();
-  size_t CreateVertexBuffer(const std::string& name,
-                            const std::vector<render::Vertex>& vertices);
+  size_t CreateMesh(const std::string& name,
+                    const std::vector<render::Vertex>& vertices,
+                    const std::vector<uint32_t>& indices);
   void DrawFrame(const Frame&);
   void Init(const UniformBufferDescriptor& uniform_buffer_descriptor);
   std::tuple<uint32_t, uint32_t> GetWindowDimensions() const;
@@ -149,4 +154,29 @@ class RenderSystem {
       size_t descriptor_set_count,
       const std::vector<VkDescriptorPoolSize>& pool_sizes);
 };
+
+template <typename T>
+std::unique_ptr<vulkan::Buffer> RenderSystem::CreateBuffer(
+    VkBufferUsageFlags usage,
+    const std::vector<T>& vertices) {
+  const size_t size = sizeof(vertices[0]) * vertices.size();
+  auto staging_vertex_buffer = std::make_unique<vulkan::Buffer>(
+      physical_device_, device_, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+          VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+      static_cast<VkDeviceSize>(size));
+
+  // Fill up buffer memory with data:
+  void* data = staging_vertex_buffer->Map<void>();
+  memcpy(data, vertices.data(), size);
+  staging_vertex_buffer->Unmap();
+
+  auto vertex_buffer = std::make_unique<vulkan::Buffer>(
+      physical_device_, device_, usage | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, static_cast<VkDeviceSize>(size));
+  CopyBuffer(staging_vertex_buffer->buffer_, vertex_buffer->buffer_,
+             static_cast<VkDeviceSize>(size));
+
+  return vertex_buffer;
+}
 }  // namespace render

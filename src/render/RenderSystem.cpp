@@ -715,18 +715,20 @@ void RenderSystem::DrawFrame(const Frame& frame) {
     for (const auto& render_object : pass.render_objects) {
       VkDescriptorSet render_object_descriptor_set =
           materials_[render_object.material_id];
-      VkBuffer vertex_buffer =
-          vulkan_buffers_[render_object.vertex_buffer_id]->buffer_;
-      VkBuffer vertex_buffers[] = {vertex_buffer};
+      const Mesh& mesh = meshes_[render_object.mesh_id];
+      VkBuffer vertex_buffers[] = {mesh.vertex_buffer->buffer_};
       VkDeviceSize offsets[] = {0};
       UpdateUniformBlock(current_frame_, render_object.uniform_block);
       vkCmdBindVertexBuffers(command_buffers_[current_frame_], 0, 1,
                              vertex_buffers, offsets);
+      vkCmdBindIndexBuffer(command_buffers_[current_frame_],
+                           mesh.index_buffer->buffer_, 0, VK_INDEX_TYPE_UINT32);
       vkCmdBindDescriptorSets(command_buffers_[current_frame_],
                               VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline_layout_,
                               1, 1, &render_object_descriptor_set, 0, nullptr);
-      vkCmdDraw(command_buffers_[current_frame_],
-                static_cast<uint32_t>(render_object.vertex_count), 1, 0, 0);
+      vkCmdDrawIndexed(command_buffers_[current_frame_],
+                       static_cast<uint32_t>(render_object.index_count), 1, 0,
+                       0, 0);
     }
   }
 
@@ -784,31 +786,14 @@ void RenderSystem::CreateFramebuffers() {
   }
 }
 
-size_t RenderSystem::CreateVertexBuffer(
-    const std::string& name,
-    const std::vector<render::Vertex>& vertices) {
-  const size_t size = sizeof(vertices[0]) * vertices.size();
-  auto staging_vertex_buffer = std::make_unique<vulkan::Buffer>(
-      physical_device_, device_, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-      VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-          VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-      static_cast<VkDeviceSize>(size));
-
-  // Fill up buffer memory with data:
-  void* data = staging_vertex_buffer->Map<void>();
-  memcpy(data, vertices.data(), size);
-  staging_vertex_buffer->Unmap();
-
-  auto vertex_buffer = std::make_unique<vulkan::Buffer>(
-      physical_device_, device_,
-      VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, static_cast<VkDeviceSize>(size));
-  CopyBuffer(staging_vertex_buffer->buffer_, vertex_buffer->buffer_,
-             static_cast<VkDeviceSize>(size));
-
+size_t RenderSystem::CreateMesh(const std::string& name,
+                                const std::vector<render::Vertex>& vertices,
+                                const std::vector<uint32_t>& indices) {
   size_t id = std::hash<std::string>{}(name);
-  vulkan_buffers_[id] = std::move(vertex_buffer);
-
+  auto vertex_buffer =
+      CreateBuffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, vertices);
+  auto index_buffer = CreateBuffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT, indices);
+  meshes_[id] = Mesh{std::move(vertex_buffer), std::move(index_buffer)};
   return id;
 }
 
@@ -933,7 +918,7 @@ void RenderSystem::Cleanup() {
     vkDestroySampler(device_, std::get<2>(texture.second), nullptr);
   }
   textures_.clear();
-  vulkan_buffers_.clear();
+  meshes_.clear();
   for (size_t i = 0; i < kMaxFrames; ++i) {
     vkDestroySemaphore(device_, render_finished_semaphores_[i], nullptr);
     vkDestroySemaphore(device_, image_available_semaphores_[i], nullptr);
