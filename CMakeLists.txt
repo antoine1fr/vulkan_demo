@@ -43,6 +43,7 @@ elseif(MSVC)
   target_sources(vulkan_demo
     PRIVATE
     "src/system/system_windows.cpp")
+  target_compile_options(vulkan_demo PRIVATE "/external:anglebrackets" "/external:W0")
 endif()
 
 string(APPEND CMAKE_CXX_FLAGS_DEBUG " -DDEBUG")
