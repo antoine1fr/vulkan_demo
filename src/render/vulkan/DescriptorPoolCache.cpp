@@ -12,7 +12,7 @@ VkDescriptorPool DescriptorPoolCache::GetPool(
   VkDescriptorPool descriptor_pool;
   VkDescriptorPoolCreateInfo info{};
   info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-  info.maxSets = descriptor_count;
+  info.maxSets = static_cast<uint32_t>(descriptor_count);
   info.poolSizeCount = static_cast<uint32_t>(sizes.size());
   info.pPoolSizes = sizes.data();
 
