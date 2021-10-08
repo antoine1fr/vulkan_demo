@@ -4,6 +4,7 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <optional>
 #include <memory>
 #include <sstream>
 
@@ -165,6 +166,23 @@ void RenderSystem::CreateVulkanSurface() {
 }
 
 void RenderSystem::SelectBestSurfaceFormat(VkSurfaceFormatKHR& surface_format) {
+  struct Compare {
+    bool operator()(const VkSurfaceFormatKHR& lhs,
+                    const VkSurfaceFormatKHR& rhs) const {
+      if (lhs.format < rhs.format)
+        return true;
+      if (lhs.format > rhs.format)
+        return false;
+      if (lhs.colorSpace < rhs.colorSpace)
+        return true;
+      return false;
+    }
+  };
+
+  const std::map<VkSurfaceFormatKHR, size_t, Compare> kValidFormats{
+      {{VK_FORMAT_B8G8R8A8_SRGB, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR}, 0},
+      {{VK_FORMAT_R8G8B8A8_SRGB, VK_COLOR_SPACE_SRGB_NONLINEAR_KHR}, 1}};
+
   uint32_t format_count;
   VK_CHECK(vkGetPhysicalDeviceSurfaceFormatsKHR(physical_device_, surface_,
                                                 &format_count, nullptr));
@@ -174,26 +192,16 @@ void RenderSystem::SelectBestSurfaceFormat(VkSurfaceFormatKHR& surface_format) {
                                                 &format_count, formats.data()));
 
   size_t best_index = 0;
-  bool found = false;
-  for (size_t i = 0; !found && i < formats.size(); ++i) {
-    switch (formats[i].format) {
-      case VK_FORMAT_R32G32B32A32_SFLOAT:
-      case VK_FORMAT_R32G32B32_SFLOAT:
-      case VK_FORMAT_R16G16B16A16_SFLOAT:
-      case VK_FORMAT_R16G16B16_SFLOAT:
-      case VK_FORMAT_R8G8B8A8_SRGB:
-      case VK_FORMAT_B8G8R8A8_SRGB:
-      case VK_FORMAT_R8G8B8A8_UNORM:
-      case VK_FORMAT_B8G8R8A8_UNORM:
-        best_index = i;
-        found = true;
-        break;
-      default:
-        break;
+  std::optional<VkSurfaceFormatKHR> best_format;
+  for (const auto& format : formats) {
+    auto it = kValidFormats.find(format);
+    if (it != kValidFormats.cend() && it->second <= best_index) {
+      best_index = it->second;
+      best_format = format;
     }
   }
-  assert(best_index != formats.size());
-  surface_format = formats[best_index];
+  assert(best_format.has_value());
+  surface_format = best_format.value();
 }
 
 void RenderSystem::CreateSwapchain() {
